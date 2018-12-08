@@ -23,10 +23,11 @@ spotlights_name = {
 def _parse_server_response(json_data):
     return  Definition(
         ip=json_data['ip'],
-        lease_time=1800,
+        lease_time=7200,
         subnet=json_data['spotlight'],
         serial=json_data['isBanned'],
-        hostname="%s.%s.%d.%d.ua"%(json_data['name'], spotlights_name.get(json_data['spotlight']), json_data['switchPort'], json_data['switchId']),
+        #hostname="%s.%s.%d.%d.ua"%(json_data['name'], spotlights_name.get(json_data['spotlight']), json_data['switchPort'], json_data['switchId']),
+        hostname=None,
         gateways="172.16.%d.254"%spotlights_networks.get(json_data['spotlight']),
         subnet_mask="255.255.255.0",
         broadcast_address="172.16.%d.255"%spotlights_networks.get(json_data['spotlight']),
@@ -41,6 +42,7 @@ import json
 import logging
 import urllib
 import urllib2
+import requests
 
 from staticdhcpdlib.databases.generic import (Definition, Database, CachingDatabase)
 
@@ -65,41 +67,23 @@ class _HTTPLogic(object):
         self._default_serial = getattr(config, 'X_HTTPDB_DEFAULT_SERIAL', 0)
 
     def _lookupMAC(self, mac):
-        """
-        Performs the actual lookup operation; this is the first thing you should
-        study when customising for your site.
-        """
+
         global _parse_server_response
-        #If you need to generate per-request headers, add them here
-        headers = self._headers.copy()
-
-        #To alter the parameters supplied with the request, alter this
-        parameters = self._parameters.copy()
-        #Dynamic items
-        parameters.update({
-            self._parameter_key_mac: str(mac),
-        })
-
-        request = urllib2.Request(
-            "%(uri)s/%(parameters)s" % {
-                'uri': self._uri,
-                'parameters': str(mac),
-            },
-            headers=headers,
-        )
-
-        _logger.debug("Sending request to '%(uri)s' for '%(params)s'..." % {
-            'uri': self._uri,
-            'params': mac,
-        })
 
         try:
-            response = urllib2.urlopen(request)
+            r = requests.get("%s/%s" % (self._uri, str(mac)))
+
+            _logger.debug("Sending request to '%(uri)s' for '%(params)s'..." % {
+                'uri': self._uri,
+                'params': mac,
+            })
+
+            code = r.status_code
+
             _logger.debug("MAC response received from '%(uri)s' for '%(mac)s'" % {
                 'uri': self._uri,
                 'mac': str(mac),
             })
-            results = json.loads(response.read())
         except Exception, e:
             _logger.error("Failed to lookup '%(mac)s' on '%(uri)s': %(error)s" % {
                 'uri': self._uri,
@@ -108,7 +92,23 @@ class _HTTPLogic(object):
             })
             raise
         else:
-            if results:
+            if code == 404:
+                _logger.debug("Unknown MAC response from '%(uri)s' for '%(mac)s': %(results)r" % {
+                    'uri': self._uri,
+                    'mac': str(mac),
+                    'results': None,
+                })
+                return None
+            elif code == 407:
+                _logger.debug("Unauthorized for '%(mac)s': %(results)r" % {
+                    'uri': self._uri,
+                    'mac': str(mac),
+                    'results': None,
+                })
+                return None
+            elif code == 200:
+                results = r.json()
+
                 _logger.debug("Known MAC response from '%(uri)s' for '%(mac)s': %(results)r" % {
                     'uri': self._uri,
                     'mac': str(mac),
@@ -122,6 +122,11 @@ class _HTTPLogic(object):
                 print rep.hostname
 
                 if rep.serial == True:
+                    _logger.debug("Banned user for '%(mac)s': %(results)r" % {
+                        'uri': self._uri,
+                        'mac': str(mac),
+                        'results': results,
+                    })
                     return None
                 rep.serial = 0
                 return rep
@@ -129,7 +134,7 @@ class _HTTPLogic(object):
                 _logger.debug("Unknown MAC response from '%(uri)s' for '%(mac)s': %(results)r" % {
                     'uri': self._uri,
                     'mac': str(mac),
-                    'results': results,
+                    'results': None,
                 })
                 return None
 

@@ -19,7 +19,7 @@ import requests
 
 _logger = logging.getLogger('dhcp')
 global _dynamic_pool
-_dynamic_pool = dynamism.DynamicPool("Joueurs_poubelle", 0, 1800, "joueurs-poubelle", subnet_mask="255.255.254.0", gateway="172.16.99.254",
+_dynamic_pool = dynamism.DynamicPool("Joueurs_poubelle", 0, 30, "joueurs-poubelle", subnet_mask="255.255.254.0", gateway="172.16.99.254",
                                      broadcast_address="172.16.99.255", domain_name_servers=['172.16.99.254'])
 _dynamic_pool.add_ips(['172.16.98.' + str(i) for i in range(10, 255)])
 _dynamic_pool.add_ips(['172.16.99.' + str(i) for i in range(1, 250)])
