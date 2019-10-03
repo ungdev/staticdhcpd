@@ -1,0 +1,303 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Database resources &#8212; staticDHCPd 2.0.0-rc1 documentation</title>
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Logging facilities" href="logging.html" />
+    <link rel="prev" title="Programming interfaces" href="index.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="logging.html" title="Logging facilities"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Programming interfaces"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">staticDHCPd 2.0.0-rc1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Programming interfaces</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="database-resources">
+<h1>Database resources<a class="headerlink" href="#database-resources" title="Permalink to this headline">¶</a></h1>
+<p>If you have a specialised site or want to integrate staticDHCPd into an
+existing framework (please don’t build your framework around it – it’s
+designed to fit into your architecture, not to <em>be</em> your architecture), you
+may find that you need to create a custom database handler.</p>
+<p>It’s really not that hard: subclass the type of database you want, override
+<code class="docutils literal notranslate"><span class="pre">lookupMac()</span></code>, and you’re done. Everything you need to know is described
+below.</p>
+<div class="section" id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="databases.generic.Definition">
+<em class="property">class </em><code class="descclassname">databases.generic.</code><code class="descname">Definition</code><span class="sig-paren">(</span><em>ip</em>, <em>lease_time</em>, <em>subnet</em>, <em>serial</em>, <em>hostname=None</em>, <em>gateways=None</em>, <em>subnet_mask=None</em>, <em>broadcast_address=None</em>, <em>domain_name=None</em>, <em>domain_name_servers=None</em>, <em>ntp_servers=None</em>, <em>extra=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/databases/generic.html#Definition"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#databases.generic.Definition" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialises a Definition.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>ip</strong> – The IP address to assign, in any main format.</li>
+<li><strong>lease_time</strong> (<em>int</em>) – The number of seconds for which the lease is
+valid.</li>
+<li><strong>subnet</strong> (<em>basestring</em>) – The “subnet” identifier of the record in the
+database.</li>
+<li><strong>serial</strong> (<em>int</em>) – The “serial” identifier of the record in the
+database.</li>
+<li><strong>hostname</strong> (<em>basestring</em>) – The hostname to assign.</li>
+<li><strong>gateways</strong> – The IP addresses to advertise, in any main format,
+including comma-delimited string.</li>
+<li><strong>subnet_mask</strong> – The IP address to advertise, in any main format.</li>
+<li><strong>broadcast_address</strong> – The IP address to advertise, in any main
+format.</li>
+<li><strong>domain_name</strong> (<em>basestring</em>) – The domain name to advertise.</li>
+<li><strong>domain_name_servers</strong> – The IP addresses to advertise, in any main
+format, including comma-delimited string.</li>
+<li><strong>ntp_servers</strong> – The IP addresses to advertise, in any main format,
+including comma-delimited string.</li>
+<li><strong>extra</strong> – An object containing any metadata from the
+database.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="attribute">
+<dt id="databases.generic.Definition.ip">
+<code class="descname">ip</code><em class="property"> = None</em><a class="headerlink" href="#databases.generic.Definition.ip" title="Permalink to this definition">¶</a></dt>
+<dd><p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">IPv4</span></code> to be assigned</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="databases.generic.Definition.lease_time">
+<code class="descname">lease_time</code><em class="property"> = None</em><a class="headerlink" href="#databases.generic.Definition.lease_time" title="Permalink to this definition">¶</a></dt>
+<dd><p>The number of seconds for which the lease is valid</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="databases.generic.Definition.subnet">
+<code class="descname">subnet</code><em class="property"> = None</em><a class="headerlink" href="#databases.generic.Definition.subnet" title="Permalink to this definition">¶</a></dt>
+<dd><p>The “subnet” identifier of the record in the database</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="databases.generic.Definition.serial">
+<code class="descname">serial</code><em class="property"> = None</em><a class="headerlink" href="#databases.generic.Definition.serial" title="Permalink to this definition">¶</a></dt>
+<dd><p>The “serial” identifier of the record in the database</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="databases.generic.Definition.hostname">
+<code class="descname">hostname</code><em class="property"> = None</em><a class="headerlink" href="#databases.generic.Definition.hostname" title="Permalink to this definition">¶</a></dt>
+<dd><p>The hostname to assign (may be None)</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="databases.generic.Definition.gateways">
+<code class="descname">gateways</code><em class="property"> = None</em><a class="headerlink" href="#databases.generic.Definition.gateways" title="Permalink to this definition">¶</a></dt>
+<dd><p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">IPv4</span></code> gateways to advertise (may be None)</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="databases.generic.Definition.subnet_mask">
+<code class="descname">subnet_mask</code><em class="property"> = None</em><a class="headerlink" href="#databases.generic.Definition.subnet_mask" title="Permalink to this definition">¶</a></dt>
+<dd><p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">IPv4</span></code> netmask to advertise (may be None)</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="databases.generic.Definition.broadcast_address">
+<code class="descname">broadcast_address</code><em class="property"> = None</em><a class="headerlink" href="#databases.generic.Definition.broadcast_address" title="Permalink to this definition">¶</a></dt>
+<dd><p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">IPv4</span></code> broadcast address to advertise (may be None)</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="databases.generic.Definition.domain_name">
+<code class="descname">domain_name</code><em class="property"> = None</em><a class="headerlink" href="#databases.generic.Definition.domain_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>The domain name to advertise (may be None)</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="databases.generic.Definition.domain_name_servers">
+<code class="descname">domain_name_servers</code><em class="property"> = None</em><a class="headerlink" href="#databases.generic.Definition.domain_name_servers" title="Permalink to this definition">¶</a></dt>
+<dd><p>A list of DNS IPv4s to advertise (may be None)</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="databases.generic.Definition.ntp_servers">
+<code class="descname">ntp_servers</code><em class="property"> = None</em><a class="headerlink" href="#databases.generic.Definition.ntp_servers" title="Permalink to this definition">¶</a></dt>
+<dd><p>A list of NTP IPv4s to advertise (may be None)</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="databases.generic.Definition.extra">
+<code class="descname">extra</code><em class="property"> = None</em><a class="headerlink" href="#databases.generic.Definition.extra" title="Permalink to this definition">¶</a></dt>
+<dd><p>An object containing any metadata from the database</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="databases.generic.Database">
+<em class="property">class </em><code class="descclassname">databases.generic.</code><code class="descname">Database</code><a class="reference internal" href="../_modules/databases/generic.html#Database"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#databases.generic.Database" title="Permalink to this definition">¶</a></dt>
+<dd><p>A stub describing the features a Database object must provide.</p>
+<dl class="method">
+<dt id="databases.generic.Database.lookupMAC">
+<code class="descname">lookupMAC</code><span class="sig-paren">(</span><em>mac</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/databases/generic.html#Database.lookupMAC"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#databases.generic.Database.lookupMAC" title="Permalink to this definition">¶</a></dt>
+<dd><p>Queries the database for the given MAC address and returns the IP and
+associated details if the MAC is known.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>mac</strong> – The MAC address to lookup.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">The <a class="reference internal" href="#databases.generic.Definition" title="databases.generic.Definition"><code class="xref py py-class docutils literal notranslate"><span class="pre">Definition</span></code></a> or, if no match was found, <code class="docutils literal notranslate"><span class="pre">None</span></code>.</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body"><strong>Exception</strong> – A problem occured while accessing the database.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="databases.generic.Database.reinitialise">
+<code class="descname">reinitialise</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/databases/generic.html#Database.reinitialise"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#databases.generic.Database.reinitialise" title="Permalink to this definition">¶</a></dt>
+<dd><p>Though subclass-dependent, this will generally result in some guarantee
+that the database will provide fresh data, whether that means flushing
+a cache or reconnecting to the source.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="databases.generic.CachingDatabase">
+<em class="property">class </em><code class="descclassname">databases.generic.</code><code class="descname">CachingDatabase</code><span class="sig-paren">(</span><em>concurrency_limit=2147483647</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/databases/generic.html#CachingDatabase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#databases.generic.CachingDatabase" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#databases.generic.Database" title="databases.generic.Database"><code class="xref py py-class docutils literal notranslate"><span class="pre">databases.generic.Database</span></code></a></p>
+<p>A fully implemented caching layer for any real database.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>concurrency_limit</strong> (<em>int</em>) – The number of concurrent database hits to
+permit, defaulting to a ridiculously large
+number.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><strong>Exception</strong> – Cache-initialisation failed.</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="databases.generic.CachingDatabase.reinitialise">
+<code class="descname">reinitialise</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/databases/generic.html#CachingDatabase.reinitialise"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#databases.generic.CachingDatabase.reinitialise" title="Permalink to this definition">¶</a></dt>
+<dd><p>Though subclass-dependent, this will generally result in some guarantee
+that the database will provide fresh data, whether that means flushing
+a cache or reconnecting to the source.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="databases.generic.CachingDatabase.lookupMAC">
+<code class="descname">lookupMAC</code><span class="sig-paren">(</span><em>mac</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/databases/generic.html#CachingDatabase.lookupMAC"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#databases.generic.CachingDatabase.lookupMAC" title="Permalink to this definition">¶</a></dt>
+<dd><p>Queries the database for the given MAC address and returns the IP and
+associated details if the MAC is known.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>mac</strong> – The MAC address to lookup.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">The <a class="reference internal" href="#databases.generic.Definition" title="databases.generic.Definition"><code class="xref py py-class docutils literal notranslate"><span class="pre">Definition</span></code></a> or, if no match was found, <code class="docutils literal notranslate"><span class="pre">None</span></code>.</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body"><strong>Exception</strong> – A problem occured while accessing the database.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Database resources</a><ul>
+<li><a class="reference internal" href="#classes">Classes</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Programming interfaces</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="logging.html"
+                        title="next chapter">Logging facilities</a></p>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="logging.html" title="Logging facilities"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Programming interfaces"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">staticDHCPd 2.0.0-rc1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Programming interfaces</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2014, Neil Tallim &lt;flan@uguu.ca&gt;.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.2.
+    </div>
+  </body>
+</html>

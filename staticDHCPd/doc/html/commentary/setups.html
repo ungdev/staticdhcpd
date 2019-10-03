@@ -1,0 +1,214 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Specialised and non-static configurations &#8212; staticDHCPd 2.0.0-rc1 documentation</title>
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Programming interfaces" href="../api/index.html" />
+    <link rel="prev" title="General database structure and concept" href="database.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../api/index.html" title="Programming interfaces"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="database.html" title="General database structure and concept"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">staticDHCPd 2.0.0-rc1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Use-cases and hints</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="specialised-and-non-static-configurations">
+<h1>Specialised and non-static configurations<a class="headerlink" href="#specialised-and-non-static-configurations" title="Permalink to this headline">¶</a></h1>
+<p><em>staticDHCPd</em> is meant to help administrators easily configure static
+environments, with easy-to-integrate provisioning facilities. However, special
+cases arise and that’s what makes the software truly powerful. Some of the more
+interesting setups in the wild will be documented here.</p>
+<div class="section" id="dynamic-hybrids">
+<span id="setups-dynamic"></span><h2>Dynamic hybrids<a class="headerlink" href="#dynamic-hybrids" title="Permalink to this headline">¶</a></h2>
+<p>The motivating case for adding support for dynamic provisioning to <em>staticDHCPd</em>
+was a LAN party context in which guests need to register their systems before
+they can be given a static mapping by site administration. Using the <cite>dynamism</cite>
+extension, unknown clients can be given configuration that puts them into an
+isolated subnet on a short lease so they can access a registration system, and
+the DHCP server itself can send notification of the new arrival to a webservice
+to streamline the operators’ work.</p>
+<p>The rest of this article outlines how to use the sample extensions provided
+with <em>staticDHCPd</em>. Any site seeking to use dynamic services will almost
+certainly need to do some customisation, though, so consider at least basic
+Python knowledge to be a pre-requisite.</p>
+<p>Be aware also that, unlike dynamic-provisioning-focused servers, like the ISC’s,
+not all provisioning semantics are respected and that, unlike <em>staticDHCPd</em>’s
+static behaviour, this facet of the system is not RFC-compliant. It probably
+won’t do anything environment-breaking, but be prepared for some weird things;
+feedback, if you encounter anything curious, is very welcome.</p>
+<div class="section" id="setup">
+<h3>Setup<a class="headerlink" href="#setup" title="Permalink to this headline">¶</a></h3>
+<p>For the common case, it is enough to
+<a class="reference internal" href="../customisation/extensions.html"><span class="doc">install</span></a> <code class="docutils literal notranslate"><span class="pre">dynamism.py</span></code> normally.</p>
+<p>If you want to do anything cooler, like send a JSON message to a webservice when
+an unknown MAC appears or block clients after they renew five times, subclass
+<code class="docutils literal notranslate"><span class="pre">DynamicPool</span></code> or just hack it in-place. It’s simple code and it’s your
+environment, so just apply what you find in tutorials on the Internet and have
+fun!</p>
+</div>
+<div class="section" id="how-stable-are-dynamic-leases">
+<h3>How stable are dynamic leases?<a class="headerlink" href="#how-stable-are-dynamic-leases" title="Permalink to this headline">¶</a></h3>
+<p>They’re should be pretty consistent: when IPs are added to the pool, if
+<a class="reference external" href="http://www.secdev.org/projects/scapy/">scapy</a> is available, and if the
+scan option is enabled, the server will ARP for each address (in parallel, so
+it’s not slow), setting up leases as hits are found, making your network a
+living database. Additionally, if a client requests a specific IP after the
+server is already online (clients often do this when rebooting), that address
+will be plucked if available.</p>
+<p>If scapy is unavailable, you’ll probably get a lot of DECLINEs, but your network
+will stabilise before too long.</p>
+</div>
+<div class="section" id="is-dst-a-factor-with-leases">
+<h3>Is DST a factor with leases?<a class="headerlink" href="#is-dst-a-factor-with-leases" title="Permalink to this headline">¶</a></h3>
+<p>No, DST shouldn’t be relevant. Internally, leases are managed as offsets against
+UTC, so timezones are only applied when formatting the timestamps for
+presentation to operators.</p>
+</div>
+</div>
+<div class="section" id="pxe-support">
+<span id="setups-pxe"></span><h2>PXE support<a class="headerlink" href="#pxe-support" title="Permalink to this headline">¶</a></h2>
+<p>In general, it should be sufficient to test for option 60
+(<cite>vendor_class_identifier</cite>) in <a class="reference internal" href="../customisation/scripting.html#scripting-loaddhcppacket"><span class="std std-ref">loadDHCPPacket()</span></a> to see if it
+matches the device-type you want to net-boot and set options 60, 66
+(<cite>tftp_server_name</cite>), and 67 (<cite>bootfile_name</cite>) accordingly, as demonstrated in
+the following example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">vendor_class_identifier</span> <span class="o">=</span> <span class="n">source_packet</span><span class="o">.</span><span class="n">getOption</span><span class="p">(</span><span class="s1">&#39;vendor_class_identifier&#39;</span><span class="p">,</span> <span class="n">convert</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">vendor_class_identifier</span> <span class="ow">and</span> <span class="n">vendor_class_identifier</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;PXEClient&#39;</span><span class="p">):</span>
+    <span class="c1">#The device may look for a specific value; check your manual</span>
+    <span class="n">packet</span><span class="o">.</span><span class="n">setOption</span><span class="p">(</span><span class="s1">&#39;vendor_class_identifier&#39;</span><span class="p">,</span> <span class="s1">&#39;PXEServer:staticDHCPd&#39;</span><span class="p">)</span>
+    <span class="c1">#Tell it where to get its bootfile; IPs are valid, too</span>
+    <span class="n">packet</span><span class="o">.</span><span class="n">setOption</span><span class="p">(</span><span class="s1">&#39;tftp_server_name&#39;</span><span class="p">,</span> <span class="s1">&#39;bootserver.example.org&#39;</span><span class="p">)</span>
+    <span class="c1">#Have the device ask for its own MAC, stripped of colons and uppercased</span>
+    <span class="n">packet</span><span class="o">.</span><span class="n">setOption</span><span class="p">(</span><span class="s1">&#39;bootfile_name&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">mac</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">+</span> <span class="s1">&#39;.cfg&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Those working with systems derived from BOOTP, rather than DHCP, like embedded
+BIOS-level stacks, will probably want to do something more like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">vendor_class_identifier</span> <span class="o">=</span> <span class="n">source_packet</span><span class="o">.</span><span class="n">getOption</span><span class="p">(</span><span class="s1">&#39;vendor_class_identifier&#39;</span><span class="p">,</span> <span class="n">convert</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">vendor_class_identifier</span> <span class="ow">and</span> <span class="n">vendor_class_identifier</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;PXEClient&#39;</span><span class="p">):</span>
+    <span class="c1">#Tell it where to get its bootfile; your device probably isn&#39;t</span>
+    <span class="c1">#DNS-aware if it&#39;s using BOOTP, but the field is free-form text</span>
+    <span class="n">packet</span><span class="o">.</span><span class="n">setOption</span><span class="p">(</span><span class="s1">&#39;siaddr&#39;</span><span class="p">,</span> <span class="n">DHCP_SERVER_IP</span><span class="p">)</span> <span class="c1">#The same address defined earlier in conf.py</span>
+    <span class="c1">#Tell it which file to look for; pxelinux.0 is pretty common</span>
+    <span class="n">packet</span><span class="o">.</span><span class="n">setOption</span><span class="p">(</span><span class="s1">&#39;file&#39;</span><span class="p">,</span> <span class="s1">&#39;pxelinux.0&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The two approaches are not mutually exclusive and well-behaved clients should
+only look at the fields they understand. But it’s probably safest to use <code class="docutils literal notranslate"><span class="pre">if</span></code>
+clauses to be sure that you’re not at risk of confusing a partial
+implementation.</p>
+<p>Of course, you can use other criteria to evaluate whether an option should be
+set and what its value should be.</p>
+<p>In the event that the client tries to hit a ProxyDHCP port (4011, by
+convention), you’ll need to edit <code class="docutils literal notranslate"><span class="pre">conf.py</span></code> and assign the port number to
+<strong>PROXY_PORT</strong>. This will cause <em>staticDHCPd</em> to bind another port on the same
+interface(s) as the main DHCP port; full DHCP service will be provided on that
+port, too, including IP assignment.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">port</span></code> parameter in <a class="reference internal" href="../customisation/scripting.html#scripting-loaddhcppacket"><span class="std std-ref">loadDHCPPacket()</span></a> and other functions
+will allow site-specific code to respond differently depending on how the packet
+was received; you can use simple tests like this to apply appropriate logic:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">port</span> <span class="o">==</span> <span class="n">PROXY_PORT</span><span class="p">:</span> <span class="c1">#The address defined in conf.py</span>
+    <span class="c1">#set special fields</span>
+</pre></div>
+</div>
+<p>Chances are, in most cases, the client will have been assigned an IP over the
+standard DHCP port already, testable with <code class="docutils literal notranslate"><span class="pre">packet.getOption('ciaddr')</span></code>, and
+though it’s highly unlikely, the device may complain if the response contains an
+IP offer; <code class="docutils literal notranslate"><span class="pre">packet.deleteOption('yiaddr')</span></code> takes care of this.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Specialised and non-static configurations</a><ul>
+<li><a class="reference internal" href="#dynamic-hybrids">Dynamic hybrids</a><ul>
+<li><a class="reference internal" href="#setup">Setup</a></li>
+<li><a class="reference internal" href="#how-stable-are-dynamic-leases">How stable are dynamic leases?</a></li>
+<li><a class="reference internal" href="#is-dst-a-factor-with-leases">Is DST a factor with leases?</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#pxe-support">PXE support</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="database.html"
+                        title="previous chapter">General database structure and concept</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../api/index.html"
+                        title="next chapter">Programming interfaces</a></p>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../api/index.html" title="Programming interfaces"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="database.html" title="General database structure and concept"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">staticDHCPd 2.0.0-rc1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Use-cases and hints</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2014, Neil Tallim &lt;flan@uguu.ca&gt;.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.2.
+    </div>
+  </body>
+</html>

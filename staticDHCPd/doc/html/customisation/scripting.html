@@ -1,0 +1,806 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Scripting guide &#8212; staticDHCPd 2.0.0-rc1 documentation</title>
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Working with extension modules" href="extensions.html" />
+    <link rel="prev" title="Configuration guide" href="configuration.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="extensions.html" title="Working with extension modules"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="configuration.html" title="Configuration guide"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">staticDHCPd 2.0.0-rc1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Customisation guidance</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="scripting-guide">
+<h1>Scripting guide<a class="headerlink" href="#scripting-guide" title="Permalink to this headline">¶</a></h1>
+<p>In addition to static parameters to configure <em>staticDHCPd</em> to work in your
+environment, extensive scripting is possible, allowing it to perform dynamic
+allocations, send events to other systems, and give you full control over every
+last detail of how DHCP works in your domain.</p>
+<p>As with the static parameters, scripting logic is intended to be as
+forwards-compatible as possible, so newer versions of the server should work
+with any extensions you’ve developed, with no issues.
+(Check the changelog, though)</p>
+<div class="section" id="organising-your-setup">
+<h2>Organising your setup<a class="headerlink" href="#organising-your-setup" title="Permalink to this headline">¶</a></h2>
+<p>To avoid potential conflicts, any non-standard functions you may define should
+be named with a leading underscore. Likewise, any modules you define should also
+be named with a leading underscore.</p>
+<p>If you wish to encapsulate code inside of a module, place it in the
+<code class="docutils literal notranslate"><span class="pre">extensions/</span></code> subdirectory next to <code class="docutils literal notranslate"><span class="pre">conf.py</span></code> or in a subpackage thereof. The
+<code class="docutils literal notranslate"><span class="pre">extensions/</span></code> subdirectory is added to <code class="docutils literal notranslate"><span class="pre">sys.path</span></code>, so imports from a
+relative root should work just like they usually do.</p>
+<p>In particular, if you expect to have a lot of custom code, you should create a
+file in the <code class="docutils literal notranslate"><span class="pre">extensions/</span></code> subdirectory named <code class="docutils literal notranslate"><span class="pre">_handlers.py</span></code> and import
+the main callback functions from there to keep <code class="docutils literal notranslate"><span class="pre">conf.py</span></code> clean. At the same
+level as the config directives, do something like the following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">_handlers</span> <span class="k">import</span> <span class="p">(</span><span class="n">handleUnknownMAC</span><span class="p">,</span> <span class="n">loadDHCPPacket</span><span class="p">)</span>
+<span class="c1">#Where the things imported are the handlers you&#39;ve defined</span>
+</pre></div>
+</div>
+<p>Note that, although <code class="docutils literal notranslate"><span class="pre">_handlers</span></code> is in <code class="docutils literal notranslate"><span class="pre">extensions/</span></code>, it is imported as a
+root-level module.</p>
+<p>Note also that your handlers module will not have access to functions and
+namespace elements defined within <code class="docutils literal notranslate"><span class="pre">conf.py</span></code>. For this reason, it is a good
+idea to define <code class="docutils literal notranslate"><span class="pre">init()</span></code> in <code class="docutils literal notranslate"><span class="pre">conf.py()</span></code> to do the run-once work (which is
+what most of the built-ins are for), but export the runtime operations to the
+new namespace. You can inject needed elements into it as part of <code class="docutils literal notranslate"><span class="pre">init()</span></code>,
+too:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">init</span><span class="p">():</span>
+    <span class="kn">import</span> <span class="nn">_handlers</span>
+    <span class="n">_handlers</span><span class="o">.</span><span class="n">rfc1035_plus</span> <span class="o">=</span> <span class="n">rfc1035_plus</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="important-data-types">
+<h2>Important data-types<a class="headerlink" href="#important-data-types" title="Permalink to this headline">¶</a></h2>
+<p><em>staticDHCPd</em> has some local data-types that are used throughout the framework:</p>
+<ul class="simple">
+<li><a class="reference internal" href="../api/databases.html#databases.generic.Definition" title="databases.generic.Definition"><code class="xref py py-class docutils literal notranslate"><span class="pre">databases.generic.Definition</span></code></a></li>
+<li><a class="reference internal" href="../api/statistics.html#statistics.Statistics" title="statistics.Statistics"><code class="xref py py-data docutils literal notranslate"><span class="pre">statistics.Statistics</span></code></a></li>
+</ul>
+</div>
+<div class="section" id="customising-dhcp-behaviour">
+<h2>Customising DHCP behaviour<a class="headerlink" href="#customising-dhcp-behaviour" title="Permalink to this headline">¶</a></h2>
+<p>Several functions are provisioned as hooks from <em>staticDHCPd</em>’s core. To
+make use of one, just create a function in <code class="docutils literal notranslate"><span class="pre">conf.py</span></code> with the corresponding
+signature.</p>
+<p>All of these functions can share packet-specific data using <em>libpydhcpserver</em>’s
+<code class="docutils literal notranslate"><span class="pre">meta</span></code> attribute on the packet object. This is a dictionary that neither
+<em>staticDHCPd</em> nor <em>libpydhcpserver</em> ever touch, letting you use it for
+whatever you want.</p>
+<div class="section" id="init">
+<span id="scripting-init"></span><h3>init()<a class="headerlink" href="#init" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt>
+<code class="descname">init</code><span class="sig-paren">(</span><span class="sig-paren">)</span></dt>
+<dd><p>Called immediately after all of staticDHCPd’s other subsystems have been
+configured.</p>
+</dd></dl>
+
+<div class="section" id="example">
+<h4>Example<a class="headerlink" href="#example" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">_tick_logger</span><span class="p">():</span>
+    <span class="c1">#A trivial function that writes to the log whenever a tick occurs</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Ticked!&quot;</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">init</span><span class="p">():</span>
+    <span class="n">callbacks</span><span class="o">.</span><span class="n">systemAddTickHandler</span><span class="p">(</span><span class="n">_tick_logger</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>When init() is called, the <cite>_tick_logger()</cite> function, also defined in
+<code class="docutils literal notranslate"><span class="pre">conf.py</span></code>, will be registered to be invoked every time the system generates
+a “tick” event.</p>
+<p>To do something before <em>staticDHCPd</em> has finished bringing up its own
+subsystems, write your logic at the same level as the parameter definitions,
+where <cite>_tick_logger()</cite> is defined.</p>
+</div>
+</div>
+<div class="section" id="filterpacket">
+<span id="scripting-filterpacket"></span><h3>filterPacket()<a class="headerlink" href="#filterpacket" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="filterPacket">
+<code class="descname">filterPacket</code><span class="sig-paren">(</span><em>packet</em>, <em>method</em>, <em>mac</em>, <em>client_ip</em>, <em>relay_ip</em>, <em>port</em><span class="sig-paren">)</span><a class="headerlink" href="#filterPacket" title="Permalink to this definition">¶</a></dt>
+<dd><p>Provides a means of writing your own blacklist logic, excluding packets from
+sources you don’t trust, that have done weird things, or under any other
+conceivable circumstance.</p>
+<p>It is called before the MAC is looked up in the database or by
+<a class="reference internal" href="#handleUnknownMAC" title="handleUnknownMAC"><code class="xref py py-func docutils literal notranslate"><span class="pre">handleUnknownMAC()</span></code></a>. Returning <code class="docutils literal notranslate"><span class="pre">True</span></code> will cause the MAC to proceed
+through the chain as normal, while returning <code class="docutils literal notranslate"><span class="pre">False</span></code> will cause it to be
+discarded. Returning <code class="docutils literal notranslate"><span class="pre">None</span></code> will put it into the temporary blacklist, like
+other MACs that trip <em>staticDHCPd</em>’s configurable thresholds.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>packet</strong> – <p>The packet received from the client, an instance of
+<code class="xref py py-class docutils literal notranslate"><span class="pre">libpydhcpserver.dhcp_types.packet.DHCPPacket</span></code>.</p>
+<p>Any changes made to this packet will persist.</p>
+</li>
+<li><strong>method</strong> (<em>str</em>) – The type of DHCP request the packet represents, one of
+<code class="docutils literal notranslate"><span class="pre">DECLINE</span></code>, <code class="docutils literal notranslate"><span class="pre">DISCOVER</span></code>, <code class="docutils literal notranslate"><span class="pre">INFORM</span></code>, <code class="docutils literal notranslate"><span class="pre">RELEASE</span></code>,
+<code class="docutils literal notranslate"><span class="pre">REQUEST:INIT-REBOOT</span></code>, <code class="docutils literal notranslate"><span class="pre">REQUEST:REBIND</span></code>,
+<code class="docutils literal notranslate"><span class="pre">REQUEST:RENEW</span></code>, <code class="docutils literal notranslate"><span class="pre">REQUEST:SELECTING</span></code>.</li>
+<li><strong>mac</strong> – The MAC of the client, an instance of
+<code class="xref py py-class docutils literal notranslate"><span class="pre">libpydhcpserver.dhcp_types.mac.MAC</span></code>.</li>
+<li><strong>client_ip</strong> – The client’s requested IP address (may be <code class="docutils literal notranslate"><span class="pre">None</span></code>), an
+instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">libpydhcpserver.dhcp_types.ipv4.IPv4</span></code>.</li>
+<li><strong>relay_ip</strong> – The relay used by the client (may be <code class="docutils literal notranslate"><span class="pre">None</span></code>), an
+instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">libpydhcpserver.dhcp_types.ipv4.IPv4</span></code>.</li>
+<li><strong>port</strong> (<em>int</em>) – The port on which the packet was received.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return bool:</th><td class="field-body"><p class="first last"><code class="docutils literal notranslate"><span class="pre">False</span></code> if the packet should be rejected; <code class="docutils literal notranslate"><span class="pre">True</span></code>
+otherwise.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<div class="section" id="id1">
+<h4>Example<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">random</span>
+<span class="k">def</span> <span class="nf">filterPacket</span><span class="p">(</span><span class="n">packet</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">mac</span><span class="p">,</span> <span class="n">client_ip</span><span class="p">,</span> <span class="n">relay_ip</span><span class="p">,</span> <span class="n">port</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">0.2</span>
+</pre></div>
+</div>
+<p>This will fake a lossy network, dropping 20% of all packets received.</p>
+</div>
+</div>
+<div class="section" id="handleunknownmac">
+<span id="scripting-handleunknownmac"></span><h3>handleUnknownMAC()<a class="headerlink" href="#handleunknownmac" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="handleUnknownMAC">
+<code class="descname">handleUnknownMAC</code><span class="sig-paren">(</span><em>packet</em>, <em>method</em>, <em>mac</em>, <em>client_ip</em>, <em>relay_ip</em>, <em>port</em><span class="sig-paren">)</span><a class="headerlink" href="#handleUnknownMAC" title="Permalink to this definition">¶</a></dt>
+<dd><p>If staticDHCPd gets a request to serve a MAC that it does not recognise,
+this function will be invoked, allowing you to query databases of your own
+to fill in the blanks.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>packet</strong> – <p>The packet received from the client, an instance of
+<code class="xref py py-class docutils literal notranslate"><span class="pre">libpydhcpserver.dhcp_types.packet.DHCPPacket</span></code>.</p>
+<p>Any changes made to this packet will persist.</p>
+</li>
+<li><strong>method</strong> (<em>str</em>) – The type of DHCP request the packet represents, one of
+<code class="docutils literal notranslate"><span class="pre">DECLINE</span></code>, <code class="docutils literal notranslate"><span class="pre">DISCOVER</span></code>, <code class="docutils literal notranslate"><span class="pre">INFORM</span></code>, <code class="docutils literal notranslate"><span class="pre">RELEASE</span></code>,
+<code class="docutils literal notranslate"><span class="pre">REQUEST:INIT-REBOOT</span></code>, <code class="docutils literal notranslate"><span class="pre">REQUEST:REBIND</span></code>,
+<code class="docutils literal notranslate"><span class="pre">REQUEST:RENEW</span></code>, <code class="docutils literal notranslate"><span class="pre">REQUEST:SELECTING</span></code>.</li>
+<li><strong>mac</strong> – The MAC of the client, an instance of
+<code class="xref py py-class docutils literal notranslate"><span class="pre">libpydhcpserver.dhcp_types.mac.MAC</span></code>.</li>
+<li><strong>client_ip</strong> – The client’s requested IP address (may be <code class="docutils literal notranslate"><span class="pre">None</span></code>), an
+instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">libpydhcpserver.dhcp_types.ipv4.IPv4</span></code>.</li>
+<li><strong>relay_ip</strong> – The relay used by the client (may be <code class="docutils literal notranslate"><span class="pre">None</span></code>), an
+instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">libpydhcpserver.dhcp_types.ipv4.IPv4</span></code>.</li>
+<li><strong>port</strong> (<em>int</em>) – The port on which the packet was received.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">An instance of <a class="reference internal" href="../api/databases.html#databases.generic.Definition" title="databases.generic.Definition"><code class="xref py py-class docutils literal notranslate"><span class="pre">databases.generic.Definition</span></code></a> or <code class="docutils literal notranslate"><span class="pre">None</span></code>,
+if the MAC could not be handled.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<div class="section" id="id2">
+<h4>Example<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">databases.generic.Definition</span>
+<span class="k">def</span> <span class="nf">handleUnknownMAC</span><span class="p">(</span><span class="n">packet</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">mac</span><span class="p">,</span> <span class="n">client_ip</span><span class="p">,</span> <span class="n">relay_ip</span><span class="p">,</span> <span class="n">port</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">mac</span> <span class="o">==</span> <span class="s1">&#39;aa:bb:cc:dd:ee:ff&#39;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">databases</span><span class="o">.</span><span class="n">generic</span><span class="o">.</span><span class="n">Definition</span><span class="p">(</span>
+            <span class="n">ip</span><span class="o">=</span><span class="s1">&#39;192.168.0.100&#39;</span><span class="p">,</span> <span class="n">lease_time</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span>
+            <span class="n">subnet</span><span class="o">=</span><span class="s1">&#39;192.168.0.0/24&#39;</span><span class="p">,</span> <span class="n">serial</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">hostname</span><span class="o">=</span><span class="s1">&#39;guestbox&#39;</span><span class="p">,</span>
+            <span class="c1">#gateways=None, #The old format didn&#39;t support per-definition gateways</span>
+            <span class="n">subnet_mask</span><span class="o">=</span><span class="s1">&#39;255.255.255.0&#39;</span><span class="p">,</span>
+            <span class="n">broadcast_address</span><span class="o">=</span><span class="s1">&#39;192.168.0.255&#39;</span><span class="p">,</span>
+            <span class="n">domain_name</span><span class="o">=</span><span class="s1">&#39;guestbox.example.org.&#39;</span><span class="p">,</span>
+            <span class="n">domain_name_servers</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;192.168.0.5&#39;</span><span class="p">,</span> <span class="s1">&#39;192.168.0.6&#39;</span><span class="p">,</span> <span class="s1">&#39;192.168.0.7&#39;</span><span class="p">],</span>
+            <span class="n">ntp_servers</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;192.168.0.8&#39;</span><span class="p">,</span> <span class="s1">&#39;192.168.0.9&#39;</span><span class="p">],</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="kc">None</span>
+</pre></div>
+</div>
+<p>It is difficult to provide a general example of how to use this function, since
+its role is basically that of a code-driven database. When you need to use it,
+you will know.</p>
+</div>
+</div>
+<div class="section" id="filterretrieveddefinitions">
+<h3>filterRetrievedDefinitions()<a class="headerlink" href="#filterretrieveddefinitions" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="filterRetrievedDefinitions">
+<code class="descname">filterRetrievedDefinitions</code><span class="sig-paren">(</span><em>definitions</em>, <em>packet</em>, <em>method</em>, <em>mac</em>, <em>client_ip</em>, <em>relay_ip</em>, <em>port</em><span class="sig-paren">)</span><a class="headerlink" href="#filterRetrievedDefinitions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Some databases produce collections of <a class="reference internal" href="../api/databases.html#databases.generic.Definition" title="databases.generic.Definition"><code class="xref py py-class docutils literal notranslate"><span class="pre">databases.generic.Definition</span></code></a>
+objects, rather than simply returning one or <code class="docutils literal notranslate"><span class="pre">None</span></code>. This function allows
+you to use runtime information, not necessarily passed back to the database,
+to make a decision about which <a class="reference internal" href="../api/databases.html#databases.generic.Definition" title="databases.generic.Definition"><code class="xref py py-class docutils literal notranslate"><span class="pre">databases.generic.Definition</span></code></a> to use
+for processing the request.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>definitions</strong> – A collection of :class:<a href="#id3"><span class="problematic" id="id4">`</span></a>databases.generic.Definition`s.</li>
+<li><strong>packet</strong> – <p>The packet received from the client, an instance of
+<code class="xref py py-class docutils literal notranslate"><span class="pre">libpydhcpserver.dhcp_types.packet.DHCPPacket</span></code>.</p>
+<p>Any changes made to this packet will persist.</p>
+</li>
+<li><strong>method</strong> (<em>str</em>) – The type of DHCP request the packet represents, one of
+<code class="docutils literal notranslate"><span class="pre">DECLINE</span></code>, <code class="docutils literal notranslate"><span class="pre">DISCOVER</span></code>, <code class="docutils literal notranslate"><span class="pre">INFORM</span></code>, <code class="docutils literal notranslate"><span class="pre">RELEASE</span></code>,
+<code class="docutils literal notranslate"><span class="pre">REQUEST:INIT-REBOOT</span></code>, <code class="docutils literal notranslate"><span class="pre">REQUEST:REBIND</span></code>,
+<code class="docutils literal notranslate"><span class="pre">REQUEST:RENEW</span></code>, <code class="docutils literal notranslate"><span class="pre">REQUEST:SELECTING</span></code>.</li>
+<li><strong>mac</strong> – The MAC of the client, an instance of
+<code class="xref py py-class docutils literal notranslate"><span class="pre">libpydhcpserver.dhcp_types.mac.MAC</span></code>.</li>
+<li><strong>client_ip</strong> – The client’s requested IP address (may be <code class="docutils literal notranslate"><span class="pre">None</span></code>), an
+instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">libpydhcpserver.dhcp_types.ipv4.IPv4</span></code>.</li>
+<li><strong>relay_ip</strong> – The relay used by the client (may be <code class="docutils literal notranslate"><span class="pre">None</span></code>), an
+instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">libpydhcpserver.dhcp_types.ipv4.IPv4</span></code>.</li>
+<li><strong>port</strong> (<em>int</em>) – The port on which the packet was received.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">An instance of <a class="reference internal" href="../api/databases.html#databases.generic.Definition" title="databases.generic.Definition"><code class="xref py py-class docutils literal notranslate"><span class="pre">databases.generic.Definition</span></code></a> or <code class="docutils literal notranslate"><span class="pre">None</span></code>,
+if the <cite>definitons</cite> could not be processed.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<div class="section" id="id5">
+<h4>Example<a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h4>
+<p>This is a very site-specific feature, since no built-in database modules
+support cases with MAC-collisions.</p>
+<p>Likely users of this feature will be heavy users of VM environments, where
+images may be loaded on multiple systems in various subnets, without the MAC
+being redefined.</p>
+<p>Before resorting to this approach for resolving such conflicts, consider using
+<a class="reference internal" href="#handleunknownmac">handleUnknownMAC()</a> and passing the parameters it receives to your database
+engine. <a class="reference internal" href="#filterretrieveddefinitions">filterRetrievedDefinitions()</a> is appropriate only in the case where
+the database layer cannot do additional processing on its own or runtime context
+is only available on the DHCP server for technical reasons.</p>
+</div>
+</div>
+<div class="section" id="loaddhcppacket">
+<span id="scripting-loaddhcppacket"></span><h3>loadDHCPPacket()<a class="headerlink" href="#loaddhcppacket" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="loadDHCPPacket">
+<code class="descname">loadDHCPPacket</code><span class="sig-paren">(</span><em>packet</em>, <em>method</em>, <em>mac</em>, <em>definition</em>, <em>relay_ip</em>, <em>port</em>, <em>source_packet</em><span class="sig-paren">)</span><a class="headerlink" href="#loadDHCPPacket" title="Permalink to this definition">¶</a></dt>
+<dd><p>Before any response is sent to a client, an opportunity is presented to
+allow you to modify the packet, adding or removing options and setting
+values as needed for your environment’s specific requirements. Or even
+allowing you to define your own blacklist rules and behaviour.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>packet</strong> – The packet to be sent to the client, an instance of
+<code class="xref py py-class docutils literal notranslate"><span class="pre">libpydhcpserver.dhcp_types.packet.DHCPPacket</span></code>.</li>
+<li><strong>method</strong> (<em>str</em>) – The type of DHCP request the packet represents, one of
+<code class="docutils literal notranslate"><span class="pre">DECLINE</span></code>, <code class="docutils literal notranslate"><span class="pre">DISCOVER</span></code>, <code class="docutils literal notranslate"><span class="pre">INFORM</span></code>, <code class="docutils literal notranslate"><span class="pre">RELEASE</span></code>,
+<code class="docutils literal notranslate"><span class="pre">REQUEST:INIT-REBOOT</span></code>, <code class="docutils literal notranslate"><span class="pre">REQUEST:REBIND</span></code>,
+<code class="docutils literal notranslate"><span class="pre">REQUEST:RENEW</span></code>, <code class="docutils literal notranslate"><span class="pre">REQUEST:SELECTING</span></code>.</li>
+<li><strong>mac</strong> – The MAC of the client, an instance of
+<code class="xref py py-class docutils literal notranslate"><span class="pre">libpydhcpserver.dhcp_types.mac.MAC</span></code>.</li>
+<li><strong>definition</strong> – The lease-definition provided via MAC-lookup, an instance
+of <a class="reference internal" href="../api/databases.html#databases.generic.Definition" title="databases.generic.Definition"><code class="xref py py-class docutils literal notranslate"><span class="pre">databases.generic.Definition</span></code></a>.</li>
+<li><strong>relay_ip</strong> – The relay used by the client (may be <code class="docutils literal notranslate"><span class="pre">None</span></code>), an
+instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">libpydhcpserver.dhcp_types.ipv4.IPv4</span></code>.</li>
+<li><strong>port</strong> (<em>int</em>) – The port on which the packet was received.</li>
+<li><strong>source_packet</strong> – <p>The packet received from the client, an instance of
+<code class="xref py py-class docutils literal notranslate"><span class="pre">libpydhcpserver.dhcp_types.packet.DHCPPacket</span></code>.</p>
+<p>This is a pristine copy of the original packet,
+unaffected by any previous modifications.</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return bool:</th><td class="field-body"><p class="first last"><code class="docutils literal notranslate"><span class="pre">True</span></code> if processing can proceed; <code class="docutils literal notranslate"><span class="pre">False</span></code> if the packet
+should be rejected.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<div class="section" id="id6">
+<h4>Example<a class="headerlink" href="#id6" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">random</span>
+<span class="k">def</span> <span class="nf">loadDHCPPacket</span><span class="p">(</span><span class="n">packet</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">mac</span><span class="p">,</span> <span class="n">definition</span><span class="p">,</span> <span class="n">relay_ip</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">source_packet</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">definition</span><span class="o">.</span><span class="n">ip</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">%</span> <span class="mi">3</span><span class="p">:</span> <span class="c1">#The client&#39;s IP&#39;s fourth octet is a multiple of 3</span>
+        <span class="n">packet</span><span class="o">.</span><span class="n">setOption</span><span class="p">(</span><span class="s1">&#39;renewal_time_value&#39;</span><span class="p">,</span> <span class="mi">60</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">method</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;REQUEST:&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mf">0.5</span><span class="p">:</span>
+        <span class="n">packet</span><span class="o">.</span><span class="n">transformToDHCPNakPacket</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mf">0.1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="kc">True</span>
+</pre></div>
+</div>
+<p>This will set the renewal-time (T1) for clients to one minute if they have an IP
+that ends in a multiple of 3.</p>
+<p>If the first qualifier isn’t satisfied and it’s a REQUEST-type packet, there’s
+a 50% chance that it will be changed into a NAK response.</p>
+<p>Lastly, if neither of the previous conditions were met, there’s a 10% chance the
+packet will simply be dropped.</p>
+</div>
+</div>
+</div>
+<div class="section" id="using-system-callbacks">
+<span id="scripting-callbacks"></span><h2>Using system callbacks<a class="headerlink" href="#using-system-callbacks" title="Permalink to this headline">¶</a></h2>
+<p>A number of callbacks exist that let you hook your code into <em>staticDHCPd</em>’s
+core functions and modules. All of these are accessible from anywhere within
+<cite>conf.py</cite>.</p>
+<dl class="function">
+<dt id="callbacks.systemAddReinitHandler">
+<code class="descclassname">callbacks.</code><code class="descname">systemAddReinitHandler</code><span class="sig-paren">(</span><em>callback</em><span class="sig-paren">)</span><a class="headerlink" href="#callbacks.systemAddReinitHandler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Registers a reinitialisation callback.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>callback</strong> (<em>callable</em>) – A callable that takes no arguments; if already
+present, it will not be registered a second time.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="callbacks.systemRemoveReinitHandler">
+<code class="descclassname">callbacks.</code><code class="descname">systemRemoveReinitHandler</code><span class="sig-paren">(</span><em>callback</em><span class="sig-paren">)</span><a class="headerlink" href="#callbacks.systemRemoveReinitHandler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unregisters a reinitialisation callback.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>callback</strong> (<em>callable</em>) – The callback to remove.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return bool:</th><td class="field-body">True if a callback was removed.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="callbacks.systemAddTickHandler">
+<code class="descclassname">callbacks.</code><code class="descname">systemAddTickHandler</code><span class="sig-paren">(</span><em>callback</em><span class="sig-paren">)</span><a class="headerlink" href="#callbacks.systemAddTickHandler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Registers a tick callback. Tick callbacks are invoked approximately once per
+second, but should treat this as a wake-up, not a metronome, and query the
+system-clock if performing any time-sensitive operations.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>callback</strong> (<em>callable</em>) – A callable that takes no arguments; if already
+present, it will not be registered a second time.
+The given callable must not block for any
+significant amount of time.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="callbacks.systemRemoveTickHandler">
+<code class="descclassname">callbacks.</code><code class="descname">systemRemoveTickHandler</code><span class="sig-paren">(</span><em>callback</em><span class="sig-paren">)</span><a class="headerlink" href="#callbacks.systemRemoveTickHandler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unregisters a tick callback.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>callback</strong> (<em>callable</em>) – The callback to remove.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return bool:</th><td class="field-body">True if a callback was removed.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="callbacks.statsAddHandler">
+<code class="descclassname">callbacks.</code><code class="descname">statsAddHandler</code><span class="sig-paren">(</span><em>callback</em><span class="sig-paren">)</span><a class="headerlink" href="#callbacks.statsAddHandler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Registers a statistics callback.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>callback</strong> (<em>callable</em>) – A callable that takes
+<a class="reference internal" href="../api/statistics.html#statistics.Statistics" title="statistics.Statistics"><code class="xref py py-data docutils literal notranslate"><span class="pre">statistics.Statistics</span></code></a> as its argument; if
+already present, it will not be registered a
+second time. This function must never block for
+any significant amount of time.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="callbacks.statsRemoveHandler">
+<code class="descclassname">callbacks.</code><code class="descname">statsRemoveHandler</code><span class="sig-paren">(</span><em>callback</em><span class="sig-paren">)</span><a class="headerlink" href="#callbacks.statsRemoveHandler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unregisters a statistics callback.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>callback</strong> (<em>callable</em>) – The callable to be removed.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return bool:</th><td class="field-body">True if a callback was removed.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="data">
+<dt id="callbacks.WEB_METHOD_DASHBOARD">
+<code class="descclassname">callbacks.</code><code class="descname">WEB_METHOD_DASHBOARD</code><a class="headerlink" href="#callbacks.WEB_METHOD_DASHBOARD" title="Permalink to this definition">¶</a></dt>
+<dd><p>The content is rendered before the dashboard.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="callbacks.WEB_METHOD_TEMPLATE">
+<code class="descclassname">callbacks.</code><code class="descname">WEB_METHOD_TEMPLATE</code><a class="headerlink" href="#callbacks.WEB_METHOD_TEMPLATE" title="Permalink to this definition">¶</a></dt>
+<dd><p>The content is rendered in the same container that would normally show the
+dashboard, but no dashboard elements are present.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="callbacks.WEB_METHOD_RAW">
+<code class="descclassname">callbacks.</code><code class="descname">WEB_METHOD_RAW</code><a class="headerlink" href="#callbacks.WEB_METHOD_RAW" title="Permalink to this definition">¶</a></dt>
+<dd><p>The content is presented exactly as returned, identified by the given
+MIME-type.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="callbacks.webAddHeader">
+<code class="descclassname">callbacks.</code><code class="descname">webAddHeader</code><span class="sig-paren">(</span><em>callback</em><span class="sig-paren">)</span><a class="headerlink" href="#callbacks.webAddHeader" title="Permalink to this definition">¶</a></dt>
+<dd><p>Installs an element in the headers; at most one instance of any given
+<code class="docutils literal notranslate"><span class="pre">callback</span></code> will be accepted.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>callback</strong> (<em>callable</em>) – <p>Must accept the parameters <cite>path</cite>, <cite>queryargs</cite>,
+<cite>mimetype</cite>, <cite>data</cite>, and <cite>headers</cite>, with the
+possibility that <cite>mimetype</cite> and <cite>data</cite> may be
+None; <cite>queryargs</cite> is a dictionary of parsed
+query-string items, with values expressed as lists
+of strings; <cite>headers</cite> is a dictionary-like object.</p>
+<p>It must return data as a string, formatted as
+XHTML, to be embedded inside of &lt;head/&gt;, or None
+to suppress inclusion.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="callbacks.webRemoveHeader">
+<code class="descclassname">callbacks.</code><code class="descname">webRemoveHeader</code><span class="sig-paren">(</span><em>callback</em><span class="sig-paren">)</span><a class="headerlink" href="#callbacks.webRemoveHeader" title="Permalink to this definition">¶</a></dt>
+<dd><p>Removes a header element.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>callback</strong> (<em>callable</em>) – The element to be removed.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return bool:</th><td class="field-body">True if an element was removed.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="callbacks.webAddDashboard">
+<code class="descclassname">callbacks.</code><code class="descname">webAddDashboard</code><span class="sig-paren">(</span><em>module</em>, <em>name</em>, <em>callback</em>, <em>ordering=None</em><span class="sig-paren">)</span><a class="headerlink" href="#callbacks.webAddDashboard" title="Permalink to this definition">¶</a></dt>
+<dd><p>Installs an element in the dashboard; at most one instance of any given
+<code class="docutils literal notranslate"><span class="pre">callback</span></code> will be accepted.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>module</strong> (<em>basestring</em>) – The name of the module to which this element
+belongs.</li>
+<li><strong>name</strong> (<em>basestring</em>) – The name under which to display the element.</li>
+<li><strong>callback</strong> (<em>callable</em>) – <p>Must accept the parameters <cite>path</cite>, <cite>queryargs</cite>,
+<cite>mimetype</cite>, <cite>data</cite>, and <cite>headers</cite>, with the
+possibility that <cite>mimetype</cite> and <cite>data</cite> may be
+None; <cite>queryargs</cite> is a dictionary of parsed
+query-string items, with values expressed as lists
+of strings; <cite>headers</cite> is a dictionary-like object.</p>
+<p>It must return data as a string, formatted as
+XHTML, to be embedded inside of a &lt;div/&gt;, or None
+to suppress inclusion.</p>
+</li>
+<li><strong>ordering</strong> (<em>int</em>) – A number that controls where this element will appear
+in relation to others. If not specified, the value will
+be that of the highest number plus one, placing it at
+the end; negatives are valid.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="callbacks.webRemoveDashboard">
+<code class="descclassname">callbacks.</code><code class="descname">webRemoveDashboard</code><span class="sig-paren">(</span><em>callback</em><span class="sig-paren">)</span><a class="headerlink" href="#callbacks.webRemoveDashboard" title="Permalink to this definition">¶</a></dt>
+<dd><p>Removes a dashboard element.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>callback</strong> (<em>callable</em>) – The element to be removed.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return bool:</th><td class="field-body">True if an element was removed.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="callbacks.webAddMethod">
+<code class="descclassname">callbacks.</code><code class="descname">webAddMethod</code><span class="sig-paren">(</span><em>path</em>, <em>callback</em>, <em>cacheable=False</em>, <em>hidden=True</em>, <em>secure=False</em>, <em>module=None</em>, <em>name=None</em>, <em>confirm=False</em>, <em>display_mode=WEB_METHOD_RAW</em><span class="sig-paren">)</span><a class="headerlink" href="#callbacks.webAddMethod" title="Permalink to this definition">¶</a></dt>
+<dd><p>Installs a webservice method; at most one instance of <code class="docutils literal notranslate"><span class="pre">path</span></code> will be
+accepted.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>path</strong> (<em>basestring</em>) – The location at which the service may be called,
+like “/ca/uguu/puukusoft/staticDHCPd/extension/stats/histograph.csv”.</li>
+<li><strong>callback</strong> (<em>callable</em>) – <p>Must accept the parameters <cite>path</cite>, <cite>queryargs</cite>,
+<cite>mimetype</cite>, <cite>data</cite>, and <cite>headers</cite>, with the
+possibility that <cite>mimetype</cite> and <cite>data</cite> may be
+None; <cite>queryargs</cite> is a dictionary of parsed
+query-string items, with values expressed as lists
+of strings; <cite>headers</cite> is a dictionary-like object.</p>
+<p>It must return a tuple of (mimetype, data,
+headers), with data being a string or bytes-like
+object.</p>
+</li>
+<li><strong>cacheable</strong> (<em>bool</em>) – Whether the client is allowed to cache the method’s
+content.</li>
+<li><strong>hidden</strong> (<em>bool</em>) – Whether to render a link in the side-bar.</li>
+<li><strong>secure</strong> (<em>bool</em>) – Whether authentication will be required before this
+method can be called.</li>
+<li><strong>module</strong> (<em>basestring</em>) – The name of the module to which this element
+belongs.</li>
+<li><strong>name</strong> (<em>basestring</em>) – The name under which to display the element.</li>
+<li><strong>confirm</strong> (<em>bool</em>) – Adds JavaScript validation to ask the user if they’re
+sure they know what they’re doing before the method
+will be invoked, if not <cite>hidden</cite>.</li>
+<li><strong>display_mode</strong> – One of the WEB_METHOD_* constants.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="callbacks.webRemoveMethod">
+<code class="descclassname">callbacks.</code><code class="descname">webRemoveMethod</code><span class="sig-paren">(</span><em>path</em><span class="sig-paren">)</span><a class="headerlink" href="#callbacks.webRemoveMethod" title="Permalink to this definition">¶</a></dt>
+<dd><p>Removes a method element.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>path</strong> (<em>basestring</em>) – The element to be removed.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return bool:</th><td class="field-body">True if an element was removed.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="logging-facilities">
+<span id="scripting-logging"></span><h2>Logging facilities<a class="headerlink" href="#logging-facilities" title="Permalink to this headline">¶</a></h2>
+<p><em>staticDHCPd</em> uses Python’s native logging framework:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;The value of some parameter is </span><span class="si">%(param)r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">{</span>
+    <span class="s1">&#39;param&#39;</span><span class="p">:</span> <span class="n">my_variable</span><span class="p">,</span>
+<span class="p">})</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Some step finished&quot;</span><span class="p">)</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;The client is supposed to have been decommissioned&quot;</span><span class="p">)</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;The client provided invalid data&quot;</span><span class="p">)</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s2">&quot;The database is offline&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In any modules you create, do the following at the start to hook into it:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">logging</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;your-extension&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For backwards-compatibility reasons, an alias for the <cite>warning</cite> level is
+provided; please do not use this and be sure to change any existing code:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">writeLog</span><span class="p">(</span><span class="s2">&quot;Something happened&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="conf-py-environment">
+<h2><code class="docutils literal notranslate"><span class="pre">conf.py</span></code> Environment<a class="headerlink" href="#conf-py-environment" title="Permalink to this headline">¶</a></h2>
+<p>A number of convenience resources are present in <code class="docutils literal notranslate"><span class="pre">conf.py</span></code>’s namespace by
+default; these are enumerated here so you know what’s provided out-of-the-box.</p>
+<div class="section" id="conversion-functions">
+<span id="scripting-conversion"></span><h3>Conversion functions<a class="headerlink" href="#conversion-functions" title="Permalink to this headline">¶</a></h3>
+<p>Various functions from <em>libpydhcpserver</em>. It is very rare that you will need to
+make use of these directly from <cite>2.0.0</cite> onwards, but they exist for
+backwards-compatibility and special cases.</p>
+<ul class="simple">
+<li>listToIP(<code class="docutils literal notranslate"><span class="pre">[127,</span> <span class="pre">0,</span> <span class="pre">0,</span> <span class="pre">1]</span></code>) -&gt; <code class="docutils literal notranslate"><span class="pre">IPv4</span></code></li>
+<li>listToIPs(<code class="docutils literal notranslate"><span class="pre">[127,</span> <span class="pre">0,</span> <span class="pre">0,</span> <span class="pre">1,</span> <span class="pre">127,</span> <span class="pre">0,</span> <span class="pre">0,</span> <span class="pre">2]</span></code>) -&gt; <code class="docutils literal notranslate"><span class="pre">[IPv4,</span> <span class="pre">IPv4]</span></code></li>
+<li>ipToList(<code class="docutils literal notranslate"><span class="pre">IPv4</span></code>) -&gt; <code class="docutils literal notranslate"><span class="pre">[127,</span> <span class="pre">0,</span> <span class="pre">0,</span> <span class="pre">1]</span></code></li>
+<li>ipsToList(<code class="docutils literal notranslate"><span class="pre">[IPv4,</span> <span class="pre">IPv4]</span></code>) -&gt; <code class="docutils literal notranslate"><span class="pre">[127,</span> <span class="pre">0,</span> <span class="pre">0,</span> <span class="pre">1,</span> <span class="pre">127,</span> <span class="pre">0,</span> <span class="pre">0,</span> <span class="pre">2]</span></code></li>
+<li>listToInt(<code class="docutils literal notranslate"><span class="pre">[127,</span> <span class="pre">10]</span></code>) -&gt; <code class="docutils literal notranslate"><span class="pre">32522</span></code></li>
+<li>listToInts(<code class="docutils literal notranslate"><span class="pre">[127,</span> <span class="pre">10,</span> <span class="pre">127,</span> <span class="pre">9]</span></code>) -&gt; <code class="docutils literal notranslate"><span class="pre">[32522,</span> <span class="pre">32521]</span></code></li>
+<li>listToLong(<code class="docutils literal notranslate"><span class="pre">[16,</span> <span class="pre">23,</span> <span class="pre">127,</span> <span class="pre">10]</span></code>) -&gt; <code class="docutils literal notranslate"><span class="pre">269975306</span></code></li>
+<li>listToLongs(<code class="docutils literal notranslate"><span class="pre">[16,</span> <span class="pre">23,</span> <span class="pre">127,</span> <span class="pre">10,</span> <span class="pre">16,</span> <span class="pre">23,</span> <span class="pre">127,</span> <span class="pre">9]</span></code>) -&gt; <code class="docutils literal notranslate"><span class="pre">[269975306,</span> <span class="pre">269975305]</span></code></li>
+<li>intToList(<code class="docutils literal notranslate"><span class="pre">32522</span></code>) -&gt; <code class="docutils literal notranslate"><span class="pre">[127,</span> <span class="pre">10]</span></code></li>
+<li>intsToList(<code class="docutils literal notranslate"><span class="pre">[32522,</span> <span class="pre">32521]</span></code>) -&gt; <code class="docutils literal notranslate"><span class="pre">[127,</span> <span class="pre">10,</span> <span class="pre">127,</span> <span class="pre">9]</span></code></li>
+<li>longToList(<code class="docutils literal notranslate"><span class="pre">269975306</span></code>) -&gt; <code class="docutils literal notranslate"><span class="pre">[16,</span> <span class="pre">23,</span> <span class="pre">127,</span> <span class="pre">10]</span></code></li>
+<li>longsToList(<code class="docutils literal notranslate"><span class="pre">[269975306,</span> <span class="pre">269975305]</span></code>) -&gt; <code class="docutils literal notranslate"><span class="pre">[16,</span> <span class="pre">23,</span> <span class="pre">127,</span> <span class="pre">10,</span> <span class="pre">16,</span> <span class="pre">23,</span> <span class="pre">127,</span> <span class="pre">9]</span></code></li>
+<li>strToList(<code class="docutils literal notranslate"><span class="pre">'hello'</span></code>) -&gt; <code class="docutils literal notranslate"><span class="pre">[104,</span> <span class="pre">101,</span> <span class="pre">108,</span> <span class="pre">108,</span> <span class="pre">111]</span></code></li>
+<li>strToPaddedList(<code class="docutils literal notranslate"><span class="pre">'hello',</span> <span class="pre">7</span></code>) -&gt; <code class="docutils literal notranslate"><span class="pre">[104,</span> <span class="pre">101,</span> <span class="pre">108,</span> <span class="pre">108,</span> <span class="pre">111,</span> <span class="pre">0,</span> <span class="pre">0]</span></code></li>
+<li>listToStr(<code class="docutils literal notranslate"><span class="pre">[104,</span> <span class="pre">101,</span> <span class="pre">108,</span> <span class="pre">108,</span> <span class="pre">111]</span></code>) -&gt; <code class="docutils literal notranslate"><span class="pre">'hello'</span></code></li>
+</ul>
+</div>
+<div class="section" id="rfc-interfaces">
+<span id="scripting-rfc"></span><h3>RFC interfaces<a class="headerlink" href="#rfc-interfaces" title="Permalink to this headline">¶</a></h3>
+<p>Also from <em>libpydhcpserver</em> is the RFC utility-set. You may need to use these at
+some point, so it is worth reading <em>libpydhcpserver</em>’s documentation for more
+information.</p>
+<ul class="simple">
+<li>rfc3046_decode</li>
+<li>rfc3925_decode</li>
+<li>rfc3925_125_decode</li>
+<li>rfc1035_plus</li>
+<li>rfc2610_78</li>
+<li>rfc2610_79</li>
+<li>rfc3361_120</li>
+<li>rfc3397_119</li>
+<li>rfc3442_121</li>
+<li>rfc3925_124</li>
+<li>rfc3925_125</li>
+<li>rfc4174_83</li>
+<li>rfc4280_88</li>
+<li>rfc5223_137</li>
+<li>rfc5678_139</li>
+<li>rfc5678_140</li>
+</ul>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Scripting guide</a><ul>
+<li><a class="reference internal" href="#organising-your-setup">Organising your setup</a></li>
+<li><a class="reference internal" href="#important-data-types">Important data-types</a></li>
+<li><a class="reference internal" href="#customising-dhcp-behaviour">Customising DHCP behaviour</a><ul>
+<li><a class="reference internal" href="#init">init()</a><ul>
+<li><a class="reference internal" href="#example">Example</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#filterpacket">filterPacket()</a><ul>
+<li><a class="reference internal" href="#id1">Example</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#handleunknownmac">handleUnknownMAC()</a><ul>
+<li><a class="reference internal" href="#id2">Example</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#filterretrieveddefinitions">filterRetrievedDefinitions()</a><ul>
+<li><a class="reference internal" href="#id5">Example</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#loaddhcppacket">loadDHCPPacket()</a><ul>
+<li><a class="reference internal" href="#id6">Example</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#using-system-callbacks">Using system callbacks</a></li>
+<li><a class="reference internal" href="#logging-facilities">Logging facilities</a></li>
+<li><a class="reference internal" href="#conf-py-environment"><code class="docutils literal notranslate"><span class="pre">conf.py</span></code> Environment</a><ul>
+<li><a class="reference internal" href="#conversion-functions">Conversion functions</a></li>
+<li><a class="reference internal" href="#rfc-interfaces">RFC interfaces</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="configuration.html"
+                        title="previous chapter">Configuration guide</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="extensions.html"
+                        title="next chapter">Working with extension modules</a></p>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="extensions.html" title="Working with extension modules"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="configuration.html" title="Configuration guide"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">staticDHCPd 2.0.0-rc1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Customisation guidance</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2014, Neil Tallim &lt;flan@uguu.ca&gt;.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.2.
+    </div>
+  </body>
+</html>

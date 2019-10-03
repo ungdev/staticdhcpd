@@ -1,0 +1,971 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Configuration guide &#8212; staticDHCPd 2.0.0-rc1 documentation</title>
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Scripting guide" href="scripting.html" />
+    <link rel="prev" title="Customisation guidance" href="index.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="scripting.html" title="Scripting guide"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Customisation guidance"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">staticDHCPd 2.0.0-rc1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Customisation guidance</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="configuration-guide">
+<h1>Configuration guide<a class="headerlink" href="#configuration-guide" title="Permalink to this headline">¶</a></h1>
+<p>A single config file is the only thing you need to modify in order to have
+almost full control over your DHCP server’s behaviour.</p>
+<p>The file is intended to be largely forwards-compatible, meaning that, when a new
+version of <em>staticDHCPd</em> is released, you shouldn’t have to change anything: the
+new engine will massage and inject data as needed to make sure that gaps in your
+configuration will be filled with sane defaults, and that old scripting logic
+will still work. (Within reason, of course; always check the changelog)</p>
+<p>The default file is very minimal in nature. To extend it, simply place the
+parameters, described below, that you want to modify into that file and restart
+your server.</p>
+<div class="section" id="conf-py">
+<h2><code class="docutils literal notranslate"><span class="pre">conf.py</span></code><a class="headerlink" href="#conf-py" title="Permalink to this headline">¶</a></h2>
+<p>conf.py is, as you may have surmised, a real Python file. It is executed by the
+interpreter before <em>staticDHCPd</em> is fully online and you can do, with it,
+everything that you’d normally expect a Python script to do, including importing
+other modules. More information on that is provided in the
+<a class="reference internal" href="scripting.html"><span class="doc">scripting guide</span></a> – the important thing to note for basic
+configurations is that you need to conform to Python syntax when specifying
+values:</p>
+<ul>
+<li><p class="first"><code class="docutils literal notranslate"><span class="pre">None</span></code>, written capitalised and without quotation, indicates that a value is
+explicitly null.</p>
+</li>
+<li><p class="first">Text values must be strings, “like this” or ‘like this’, with quotation marks.</p>
+</li>
+<li><p class="first">Numbers are written naturally, like 6 or 7.32.</p>
+</li>
+<li><p class="first">Boolean values are written as <code class="docutils literal notranslate"><span class="pre">True</span></code> or <code class="docutils literal notranslate"><span class="pre">False</span></code>, capitalised, without
+quotation. <code class="docutils literal notranslate"><span class="pre">1</span></code> and <code class="docutils literal notranslate"><span class="pre">0</span></code> are NOT suitable substitutes.</p>
+</li>
+<li><p class="first">Lists are written like <code class="docutils literal notranslate"><span class="pre">[1,</span> <span class="pre">2,</span> <span class="pre">'hello']</span></code>, and may contain mixed data-types.</p>
+</li>
+<li><p class="first">Concatenations of strings may be done using the + operator:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s1">&#39;hello&#39;</span> <span class="o">+</span> <span class="s1">&#39;goodbye&#39;</span> <span class="c1"># = &#39;hellogoodbye&#39;</span>
+<span class="c1">#Non-string data, like numbers, must be converted</span>
+<span class="s1">&#39;hello&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span> <span class="c1"># = &#39;hello5&#39;</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Any value defined in the file may be referenced on any later line, like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">_HELLO</span> <span class="o">=</span> <span class="s1">&#39;hello&#39;</span>
+<span class="n">GREETING</span> <span class="o">=</span> <span class="n">_HELLO</span> <span class="o">+</span> <span class="s1">&#39;goodbye&#39;</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Everything is case-sensitive.</p>
+</li>
+</ul>
+<p>You may define non-config-parameter values in this file, but it would be a good
+idea to prefix their names with an underscore, to avoid potential conflicts with
+future upstream changes.</p>
+</div>
+<div class="section" id="parameters">
+<h2>Parameters<a class="headerlink" href="#parameters" title="Permalink to this headline">¶</a></h2>
+<p>The various settings that may be defined within <code class="docutils literal notranslate"><span class="pre">conf.py</span></code>. These should always
+be specified before any custom code you might add, like functions.</p>
+<div class="section" id="general">
+<h3>General<a class="headerlink" href="#general" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="debug-boolean-default-false">
+<h4><strong>DEBUG</strong> : boolean : default=False<a class="headerlink" href="#debug-boolean-default-false" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Adds additional information to everything that gets logged</li>
+<li>Does not modify the logging severity levels of individual loggers</li>
+</ul>
+</div>
+<div class="section" id="system-name-text-default-staticdhcpd">
+<h4><strong>SYSTEM_NAME</strong> : text : default=’staticDHCPd’<a class="headerlink" href="#system-name-text-default-staticdhcpd" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The name the system will use to self-identify</li>
+</ul>
+</div>
+<div class="section" id="daemon-boolean-default-true">
+<h4><strong>DAEMON</strong> : boolean : default=True<a class="headerlink" href="#daemon-boolean-default-true" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Causes the server to daemonise during startup</li>
+<li>Not a good thing to have enabled when doing initial setup because you lose ^C
+and console logs</li>
+</ul>
+</div>
+<div class="section" id="pid-file-text-none-default-none">
+<h4><strong>PID_FILE</strong> : text, None : default=None<a class="headerlink" href="#pid-file-text-none-default-none" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The path to which a pidfile should be written</li>
+<li><code class="docutils literal notranslate"><span class="pre">'/var/run/staticDHCPd.pid'</span></code> is a good choice</li>
+</ul>
+</div>
+</div>
+<div class="section" id="server">
+<h3>Server<a class="headerlink" href="#server" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="uid-integer-must-be-specified">
+<h4><strong>UID</strong> : integer : <strong>MUST BE SPECIFIED</strong><a class="headerlink" href="#uid-integer-must-be-specified" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The UID under which the server will run, after everything is bound</li>
+<li>This should normally be your system’s “nobody”</li>
+</ul>
+</div>
+<div class="section" id="gid-integer-must-be-specified">
+<h4><strong>GID</strong> : integer : <strong>MUST BE SPECIFIED</strong><a class="headerlink" href="#gid-integer-must-be-specified" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The GID under which the server will run, after everything is bound</li>
+<li>This should normally be your system’s “nobody”</li>
+</ul>
+</div>
+<div class="section" id="dhcp-server-ip-text-must-be-specified">
+<h4><strong>DHCP_SERVER_IP</strong> : text : <strong>MUST BE SPECIFIED</strong><a class="headerlink" href="#dhcp-server-ip-text-must-be-specified" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The IP of the interface to use for DHCP traffic</li>
+<li>This value must be a specific IP address: <code class="docutils literal notranslate"><span class="pre">'0.0.0.0'</span></code> is invalid</li>
+</ul>
+</div>
+<div class="section" id="dhcp-response-interface-text-default">
+<h4><strong>DHCP_RESPONSE_INTERFACE</strong> : text : default=’-‘<a class="headerlink" href="#dhcp-response-interface-text-default" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The value is the lexical name of the interface from which responses
+should be sent, like <code class="docutils literal notranslate"><span class="pre">'eth0'</span></code></li>
+<li>A special value of <code class="docutils literal notranslate"><span class="pre">'-'</span></code> may be used to automatically resolve the interface
+based on <cite>DHCP_SERVER_IP</cite></li>
+<li>If set, response-packets will be crafted from layer 2, allowing for unicast
+OFFERs in response to DISCOVERs, if the client set the broadcast bit</li>
+<li>For the vast majority of environments where staticDHCPd is likely to be used,
+it is perfectly fine, and recommended, to disable this feature with <code class="docutils literal notranslate"><span class="pre">None</span></code><ul>
+<li>This feature was historically not enabled by default because it incurs a
+slight performance penalty (calculating IP and UDP checksums in Python) and
+some additional overhead (interfacing with <em>libpcap</em> from Python if Linux’s
+<em>AF_PACKET</em> (which has its own syscalls) is not available) on all
+broadcast-scope exchanges, whether they use unicast MAC-broadcasts or not,
+plus a persistent filehandle and some memory, and complications with VLANs
+if the server is expected to handle them</li>
+<li>Unfortunately, some Windows firewalling configurations require it</li>
+<li>Surprisingly, the Linux kernel’s DHCP autoconfiguration mechanism does, too</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="dhcp-response-interface-qtags-list-default-none">
+<h4><strong>DHCP_RESPONSE_INTERFACE_QTAGS</strong> : list : default=None<a class="headerlink" href="#dhcp-response-interface-qtags-list-default-none" title="Permalink to this headline">¶</a></h4>
+<ul>
+<li><p class="first">If <strong>DHCP_RESPONSE_INTERFACE</strong> is set and qtags are required on that
+interface, they may be supplied in order of appearance (head to tail) as TCI
+blocks</p>
+</li>
+<li><p class="first">Format:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="n">Priority</span> <span class="n">Control</span> <span class="n">Point</span> <span class="p">(</span><span class="mi">0</span><span class="o">-</span><span class="mi">7</span><span class="p">),</span>
+ <span class="n">Drop</span> <span class="n">Eligible</span> <span class="n">Indicator</span> <span class="p">(</span><span class="kc">True</span><span class="o">/</span><span class="kc">False</span><span class="p">),</span>
+ <span class="n">VLAN</span> <span class="n">Identifier</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="mi">4094</span><span class="p">),)</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Example: <code class="docutils literal notranslate"><span class="pre">[(3,</span> <span class="pre">True,</span> <span class="pre">42),</span> <span class="pre">(1,</span> <span class="pre">False,</span> <span class="pre">77)]</span></code> -&gt; VLAN 42 with nested VLAN 77</p>
+</li>
+</ul>
+</div>
+<div class="section" id="dhcp-server-port-integer-default-67">
+<h4><strong>DHCP_SERVER_PORT</strong> : integer : default=67<a class="headerlink" href="#dhcp-server-port-integer-default-67" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The port on which to listen for DHCP queries</li>
+</ul>
+</div>
+<div class="section" id="dhcp-client-port-integer-default-68">
+<h4><strong>DHCP_CLIENT_PORT</strong> : integer : default=68<a class="headerlink" href="#dhcp-client-port-integer-default-68" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The port on which to respond to DHCP clients</li>
+</ul>
+</div>
+<div class="section" id="proxy-port-integer-none-default-none">
+<h4><strong>PROXY_PORT</strong> : integer, None : default=None<a class="headerlink" href="#proxy-port-integer-none-default-none" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The port to use for ProxyDHCP-processing, if required</li>
+<li>ProxyDHCP normally runs on <code class="docutils literal notranslate"><span class="pre">4011</span></code></li>
+</ul>
+</div>
+</div>
+<div class="section" id="caching">
+<h3>Caching<a class="headerlink" href="#caching" title="Permalink to this headline">¶</a></h3>
+<p>Caches are only enabled if the database engine supports them and <strong>USE_CACHE</strong>
+is set.</p>
+<div class="section" id="caching-model-text-default-in-process">
+<h4><strong>CACHING_MODEL</strong> : text : default=”in-process”<a class="headerlink" href="#caching-model-text-default-in-process" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The database-engine to use for handling static lease data<ul>
+<li><code class="docutils literal notranslate"><span class="pre">'in-process'</span></code>: manage the cache using in-process constructs, either
+memory or an on-disk file accessed exclusively by <em>staticDHCPd</em></li>
+<li><code class="docutils literal notranslate"><span class="pre">'memcached'</span></code>: use a <em>memcached</em> server as an external store</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="cache-on-disk-boolean-default-false">
+<h4><strong>CACHE_ON_DISK</strong> : boolean : default=False<a class="headerlink" href="#cache-on-disk-boolean-default-false" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Causes the local cache to be managed as a local file, rather than a purely
+in-memory construct<ul>
+<li>For largeish caches that are accessed infrequently, but where local access
+through disk (or hotspot-cached pages in RAM) is still expected to be more
+efficient than a remote database call</li>
+<li>This file will be temporary, unless <strong>PERSISTENT_CACHE</strong> is set; in that
+case, the file will be the same</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="persistent-cache-text-default-none">
+<h4><strong>PERSISTENT_CACHE</strong> : text : default=None<a class="headerlink" href="#persistent-cache-text-default-none" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Causes the cache to be written to a local database file, which will be used
+when <em>staticDHCPd</em> is restarted, to provide durability against unstable
+databases</li>
+<li>The value of this option is the path to the file;
+<code class="docutils literal notranslate"><span class="pre">'/var/tmp/staticDHCPd.db'</span></code> is usually a good choice</li>
+<li>If <strong>CACHE_ON_DISK</strong> is set, this file will be used directly as a buffer; if
+not, the contents of this file will be read into memory and this file will be
+write-only at runtime</li>
+</ul>
+</div>
+<div class="section" id="memcached-host-text-default-none">
+<h4><strong>MEMCACHED_HOST</strong> : text : default=None<a class="headerlink" href="#memcached-host-text-default-none" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The address of the <em>memcached</em> server to use with the corresponding model</li>
+</ul>
+</div>
+<div class="section" id="memcached-port-integer-default-11211">
+<h4><strong>MEMCACHED_PORT</strong> : integer : default=11211<a class="headerlink" href="#memcached-port-integer-default-11211" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The port of the <em>memcached</em> server to use with the corresponding model</li>
+</ul>
+</div>
+<div class="section" id="memcached-age-time-integer-default-300">
+<h4><strong>MEMCACHED_AGE_TIME</strong> : integer : default=300<a class="headerlink" href="#memcached-age-time-integer-default-300" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The lifetime to apply to cached data within the <em>memcached</em> server</li>
+</ul>
+</div>
+</div>
+<div class="section" id="database">
+<h3>Database<a class="headerlink" href="#database" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="database-engine-text-none-must-be-specified">
+<h4><strong>DATABASE_ENGINE</strong> : text, None : <strong>MUST BE SPECIFIED</strong><a class="headerlink" href="#database-engine-text-none-must-be-specified" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The database-engine to use for handling static lease data<ul>
+<li>One of <code class="docutils literal notranslate"><span class="pre">None</span></code>, <code class="docutils literal notranslate"><span class="pre">'SQLite'</span></code>, <code class="docutils literal notranslate"><span class="pre">'PostgreSQL'</span></code>, <code class="docutils literal notranslate"><span class="pre">'Oracle'</span></code>, <code class="docutils literal notranslate"><span class="pre">'MySQL'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'INI'</span></code></li>
+</ul>
+</li>
+<li>Only parameters related to the chosen database engine need to be supplied</li>
+<li>You may alternatively supply a callable that provides an instance of
+<a class="reference internal" href="../api/databases.html#databases.generic.Database" title="databases.generic.Database"><code class="xref py py-class docutils literal notranslate"><span class="pre">databases.generic.Database</span></code></a>, if you want to implement your own engine
+without messing with core code<ul>
+<li>The callable must require no arguments</li>
+<li>To keep <code class="docutils literal notranslate"><span class="pre">conf.py</span></code> clean, define your engine in a separate module, like
+<code class="docutils literal notranslate"><span class="pre">extensions/_mydb.py</span></code> and import it just before <strong>DATABASE_ENGINE</strong> is
+set, referencing a callable declared therein</li>
+<li>If you need to configure it differently for each server, declare a lambda
+or short function in <code class="docutils literal notranslate"><span class="pre">conf.py</span></code> and make changes to that as needed</li>
+<li>It is sane to inherit from subclasses like
+<a class="reference internal" href="../api/databases.html#databases.generic.CachingDatabase" title="databases.generic.CachingDatabase"><code class="xref py py-class docutils literal notranslate"><span class="pre">databases.generic.CachingDatabase</span></code></a>; it is probably safe to inherit
+from the <code class="xref py py-class docutils literal notranslate"><span class="pre">databases._sql._SQLDatabase</span></code> family, too, but its internal
+implementation is technically private</li>
+<li>If you need to tie into <a class="reference internal" href="scripting.html#scripting-callbacks"><span class="std std-ref">callbacks</span></a>, like
+reinitialisation, you should do this as part of the callable’s logic; the
+<code class="docutils literal notranslate"><span class="pre">callbacks</span></code> object is not available at the time that <code class="docutils literal notranslate"><span class="pre">conf.py</span></code> is first
+processed, but it is available while the callable is executed<ul>
+<li>Alternatively, you can create the object at the <code class="docutils literal notranslate"><span class="pre">conf.py</span></code> level, write a
+simple <code class="docutils literal notranslate"><span class="pre">lambda</span> <span class="pre">:</span> <span class="pre">_MY_INSTANTIATED_DATABASE_OBJECT</span></code> as the callable, and
+operate on <code class="docutils literal notranslate"><span class="pre">_MY_INSTANTIATED_DATABASE_OBJECT</span></code> in <code class="docutils literal notranslate"><span class="pre">init()</span></code>, for
+consistency</li>
+<li>Note: the database object’s <code class="docutils literal notranslate"><span class="pre">reinitialise()</span></code> method is automatically
+registered, so you only need to tie into callbacks if you need behaviour
+that cannot be captured there</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="database-none">
+<h4>Database:None<a class="headerlink" href="#database-none" title="Permalink to this headline">¶</a></h4>
+<p>No parameters to set. This database is only useful if you are exclusively using
+<code class="docutils literal notranslate"><span class="pre">handleUnknownMAC()</span></code>, described in the <a class="reference internal" href="scripting.html"><span class="doc">scripting guide</span></a>,
+to provision addresses.</p>
+</div>
+<div class="section" id="database-sqlite">
+<h4>Database:SQLite<a class="headerlink" href="#database-sqlite" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="case-insensitive-macs-boolean-default-false">
+<h5><strong>CASE_INSENSITIVE_MACS</strong> : boolean : default=False<a class="headerlink" href="#case-insensitive-macs-boolean-default-false" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>Forces case-insensitive comparisons for MACs</li>
+<li>If this matters to you, you should create a NOCASE index over <cite>maps:mac</cite>
+instead, for greater efficiency</li>
+</ul>
+</div>
+<div class="section" id="use-cache-boolean-default-false">
+<h5><strong>USE_CACHE</strong> : boolean : default=False<a class="headerlink" href="#use-cache-boolean-default-false" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>Causes data retrieved from the database to be stored in memory until the
+cache is flushed via reinitialisation</li>
+<li>For SQLite, this should normally be <code class="docutils literal notranslate"><span class="pre">False</span></code></li>
+</ul>
+</div>
+<div class="section" id="extra-maps-list-default-none">
+<h5><strong>EXTRA_MAPS</strong> : list : default=None<a class="headerlink" href="#extra-maps-list-default-none" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>Any non-standard fields to read from the <cite>maps</cite> table, which will be
+provided in <code class="docutils literal notranslate"><span class="pre">definition.extra</span></code>, keyed as <cite>maps.$COLUMN</cite></li>
+</ul>
+</div>
+<div class="section" id="extra-subnets-list-default-none">
+<h5><strong>EXTRA_SUBNETS</strong> : list : default=None<a class="headerlink" href="#extra-subnets-list-default-none" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>Any non-standard fields to read from the <cite>subnets</cite> table, which will be
+provided in <code class="docutils literal notranslate"><span class="pre">definition.extra</span></code>, keyed as <cite>subnets.$COLUMN</cite></li>
+</ul>
+</div>
+<div class="section" id="sqlite-file-text-must-be-specified-if-using-sqlite">
+<h5><strong>SQLITE_FILE</strong> : text : <em>MUST BE SPECIFIED if using SQLite</em><a class="headerlink" href="#sqlite-file-text-must-be-specified-if-using-sqlite" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>The path to the file that contains your SQLite database</li>
+</ul>
+</div>
+</div>
+<div class="section" id="database-postgresql">
+<h4>Database:PostgreSQL<a class="headerlink" href="#database-postgresql" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="id1">
+<h5><strong>CASE_INSENSITIVE_MACS</strong> : boolean : default=False<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>Forces case-insensitive comparisons for MACs</li>
+<li>If this matters to you, you should create a lower() index over <cite>maps:mac</cite>
+instead, for greater efficiency</li>
+</ul>
+</div>
+<div class="section" id="id2">
+<h5><strong>USE_CACHE</strong> : boolean : default=False<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>Causes data retrieved from the database to be stored in memory until the
+cache is flushed via reinitialisation</li>
+<li>Can greatly improve performance in stable, high-load environments</li>
+</ul>
+</div>
+<div class="section" id="id3">
+<h5><strong>EXTRA_MAPS</strong> : list : default=None<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>Any non-standard fields to read from the <cite>maps</cite> table, which will be
+provided in <code class="docutils literal notranslate"><span class="pre">definition.extra</span></code>, keyed as <cite>maps.$COLUMN</cite></li>
+</ul>
+</div>
+<div class="section" id="id4">
+<h5><strong>EXTRA_SUBNETS</strong> : list : default=None<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>Any non-standard fields to read from the <cite>subnets</cite> table, which will be
+provided in <code class="docutils literal notranslate"><span class="pre">definition.extra</span></code>, keyed as <cite>subnets.$COLUMN</cite></li>
+</ul>
+</div>
+<div class="section" id="use-pool-boolean-default-true">
+<h5><strong>USE_POOL</strong> : boolean : default=True<a class="headerlink" href="#use-pool-boolean-default-true" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>Causes database connections to pull from a pool by default, reducing
+connection overhead considerably</li>
+<li>Requires that the <em>eventlet</em> library is installed; will fall back to direct
+connections if it’s not available</li>
+</ul>
+</div>
+<div class="section" id="postgresql-database-text-must-be-specified-if-using-postgresql">
+<h5><strong>POSTGRESQL_DATABASE</strong> : text : <em>MUST BE SPECIFIED if using PostgreSQL</em><a class="headerlink" href="#postgresql-database-text-must-be-specified-if-using-postgresql" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>The name of your database</li>
+</ul>
+</div>
+<div class="section" id="postgresql-username-text-must-be-specified-if-using-postgresql">
+<h5><strong>POSTGRESQL_USERNAME</strong> : text : <em>MUST BE SPECIFIED if using PostgreSQL</em><a class="headerlink" href="#postgresql-username-text-must-be-specified-if-using-postgresql" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>The name of a user with SELECT permissions</li>
+</ul>
+</div>
+<div class="section" id="postgresql-password-text-must-be-specified-if-using-postgresql">
+<h5><strong>POSTGRESQL_PASSWORD</strong> : text : <em>MUST BE SPECIFIED if using PostgreSQL</em><a class="headerlink" href="#postgresql-password-text-must-be-specified-if-using-postgresql" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>The user’s password</li>
+</ul>
+</div>
+<div class="section" id="postgresql-host-text-none-default-none">
+<h5><strong>POSTGRESQL_HOST</strong> : text, None : default=None<a class="headerlink" href="#postgresql-host-text-none-default-none" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>The host on which PostgreSQL is running</li>
+<li>If <code class="docutils literal notranslate"><span class="pre">None</span></code>, a local socket will be used</li>
+</ul>
+</div>
+<div class="section" id="postgresql-port-integer-default-5432">
+<h5><strong>POSTGRESQL_PORT</strong> : integer : default=5432<a class="headerlink" href="#postgresql-port-integer-default-5432" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>The port on which PostgreSQL is running</li>
+<li>If <strong>POSTGRESQL_HOST</strong> is <code class="docutils literal notranslate"><span class="pre">None</span></code>, a local socket will be used and this value
+will be ignored</li>
+</ul>
+</div>
+<div class="section" id="postgresql-sslmode-text-default-disable">
+<h5><strong>POSTGRESQL_SSLMODE</strong> : text : default=’disable’<a class="headerlink" href="#postgresql-sslmode-text-default-disable" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>The <a class="reference external" href="http://www.postgresql.org/docs/9.0/static/libpq-ssl.html#LIBPQ-SSL-SSLMODE-STATEMENTS">SSL mode</a>
+to use</li>
+<li>Ignored in local socket situations</li>
+</ul>
+</div>
+<div class="section" id="postgresql-maximum-connections-integer-default-4">
+<h5><strong>POSTGRESQL_MAXIMUM_CONNECTIONS</strong> : integer : default=4<a class="headerlink" href="#postgresql-maximum-connections-integer-default-4" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>The maximum number of threads that may connect to the database at once</li>
+</ul>
+</div>
+</div>
+<div class="section" id="database-oracle">
+<h4>Database:Oracle<a class="headerlink" href="#database-oracle" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="id5">
+<h5><strong>CASE_INSENSITIVE_MACS</strong> : boolean : default=False<a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>Forces case-insensitive comparisons for MACs</li>
+<li>If this matters to you, you should create a lower() index over <cite>maps:mac</cite>
+instead, for greater efficiency</li>
+</ul>
+</div>
+<div class="section" id="id6">
+<h5><strong>USE_CACHE</strong> : boolean : default=False<a class="headerlink" href="#id6" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>Causes data retrieved from the database to be stored in memory until the
+cache is flushed via reinitialisation</li>
+<li>Can greatly improve performance in stable, high-load environments</li>
+</ul>
+</div>
+<div class="section" id="id7">
+<h5><strong>EXTRA_MAPS</strong> : list : default=None<a class="headerlink" href="#id7" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>Any non-standard fields to read from the <cite>maps</cite> table, which will be
+provided in <code class="docutils literal notranslate"><span class="pre">definition.extra</span></code>, keyed as <cite>maps.$COLUMN</cite></li>
+</ul>
+</div>
+<div class="section" id="id8">
+<h5><strong>EXTRA_SUBNETS</strong> : list : default=None<a class="headerlink" href="#id8" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>Any non-standard fields to read from the <cite>subnets</cite> table, which will be
+provided in <code class="docutils literal notranslate"><span class="pre">definition.extra</span></code>, keyed as <cite>subnets.$COLUMN</cite></li>
+</ul>
+</div>
+<div class="section" id="id9">
+<h5><strong>USE_POOL</strong> : boolean : default=True<a class="headerlink" href="#id9" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>Causes database connections to pull from a pool by default, reducing
+connection overhead considerably</li>
+<li>Requires that the <em>eventlet</em> library is installed; will fall back to direct
+connections if it’s not available</li>
+</ul>
+</div>
+<div class="section" id="oracle-database-text-must-be-supplied-if-using-oracle">
+<h5><strong>ORACLE_DATABASE</strong> : text : <em>MUST BE SUPPLIED if using Oracle</em><a class="headerlink" href="#oracle-database-text-must-be-supplied-if-using-oracle" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>The name of your database (from <cite>tnsnames.ora</cite>)</li>
+</ul>
+</div>
+<div class="section" id="oracle-username-text-must-be-supplied-if-using-oracle">
+<h5><strong>ORACLE_USERNAME</strong> : text : <em>MUST BE SUPPLIED if using Oracle</em><a class="headerlink" href="#oracle-username-text-must-be-supplied-if-using-oracle" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>The name of a user with SELECT permissions</li>
+</ul>
+</div>
+<div class="section" id="oracle-password-text-must-be-supplied-if-using-oracle">
+<h5><strong>ORACLE_PASSWORD</strong> : text : <em>MUST BE SUPPLIED if using Oracle</em><a class="headerlink" href="#oracle-password-text-must-be-supplied-if-using-oracle" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>The user’s password</li>
+</ul>
+</div>
+<div class="section" id="oracle-maximum-connections-integer-default-4">
+<h5><strong>ORACLE_MAXIMUM_CONNECTIONS</strong> : integer : default=4<a class="headerlink" href="#oracle-maximum-connections-integer-default-4" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>The maximum number of threads that may connect to the database at once</li>
+</ul>
+</div>
+</div>
+<div class="section" id="database-mysql">
+<h4>Database:MySQL<a class="headerlink" href="#database-mysql" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="id10">
+<h5><strong>CASE_INSENSITIVE_MACS</strong> : boolean : default=False<a class="headerlink" href="#id10" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>Forces case-insensitive comparisons for MACs</li>
+<li>MySQL is normally case-insensitive, so this isn’t likely to be helpful</li>
+</ul>
+</div>
+<div class="section" id="id11">
+<h5><strong>USE_CACHE</strong> : boolean : default=False<a class="headerlink" href="#id11" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>Causes data retrieved from the database to be stored in memory until the
+cache is flushed via reinitialisation</li>
+<li>Can greatly improve performance in stable, high-load environments</li>
+</ul>
+</div>
+<div class="section" id="id12">
+<h5><strong>EXTRA_MAPS</strong> : list : default=None<a class="headerlink" href="#id12" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>Any non-standard fields to read from the <cite>maps</cite> table, which will be
+provided in <code class="docutils literal notranslate"><span class="pre">definition.extra</span></code>, keyed as <cite>maps.$COLUMN</cite></li>
+</ul>
+</div>
+<div class="section" id="id13">
+<h5><strong>EXTRA_SUBNETS</strong> : list : default=None<a class="headerlink" href="#id13" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>Any non-standard fields to read from the <cite>subnets</cite> table, which will be
+provided in <code class="docutils literal notranslate"><span class="pre">definition.extra</span></code>, keyed as <cite>subnets.$COLUMN</cite></li>
+</ul>
+</div>
+<div class="section" id="id14">
+<h5><strong>USE_POOL</strong> : boolean : default=True<a class="headerlink" href="#id14" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>Causes database connections to pull from a pool by default, reducing
+connection overhead considerably</li>
+<li>Requires that the <em>eventlet</em> library is installed; will fall back to direct
+connections if it’s not available</li>
+</ul>
+</div>
+<div class="section" id="mysql-database-text-must-be-specified-if-using-mysql">
+<h5><strong>MYSQL_DATABASE</strong> : text : <em>MUST BE SPECIFIED if using MySQL</em><a class="headerlink" href="#mysql-database-text-must-be-specified-if-using-mysql" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>The name of your database</li>
+</ul>
+</div>
+<div class="section" id="mysql-username-text-must-be-specified-if-using-mysql">
+<h5><strong>MYSQL_USERNAME</strong> : text : <em>MUST BE SPECIFIED if using MySQL</em><a class="headerlink" href="#mysql-username-text-must-be-specified-if-using-mysql" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>The name of a user with SELECT permissions</li>
+</ul>
+</div>
+<div class="section" id="mysql-password-text-must-be-specified-if-using-mysql">
+<h5><strong>MYSQL_PASSWORD</strong> : text : <em>MUST BE SPECIFIED if using MySQL</em><a class="headerlink" href="#mysql-password-text-must-be-specified-if-using-mysql" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>The user’s password</li>
+</ul>
+</div>
+<div class="section" id="mysql-host-text-none-default-none">
+<h5><strong>MYSQL_HOST</strong> : text, None : default=None<a class="headerlink" href="#mysql-host-text-none-default-none" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>The host on which MySQL is running</li>
+<li>If <code class="docutils literal notranslate"><span class="pre">None</span></code>, a local socket will be used</li>
+</ul>
+</div>
+<div class="section" id="mysql-port-integer-default-3306">
+<h5><strong>MYSQL_PORT</strong> : integer : default=3306<a class="headerlink" href="#mysql-port-integer-default-3306" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>The port on which MySQL is running</li>
+<li>If <strong>MYSQL_HOST</strong> is <code class="docutils literal notranslate"><span class="pre">None</span></code>, a local socket will be used and this value will
+be ignored</li>
+</ul>
+</div>
+<div class="section" id="mysql-maximum-connections-integer-default-4">
+<h5><strong>MYSQL_MAXIMUM_CONNECTIONS</strong> : integer : default=4<a class="headerlink" href="#mysql-maximum-connections-integer-default-4" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>The maximum number of threads that may connect to the database at once</li>
+</ul>
+</div>
+</div>
+<div class="section" id="database-ini">
+<h4>Database:INI<a class="headerlink" href="#database-ini" title="Permalink to this headline">¶</a></h4>
+<p>Any additional options in subnets or maps will be exposed through
+<code class="docutils literal notranslate"><span class="pre">definition.extra</span></code>.</p>
+<div class="section" id="ini-file-text-must-be-specified-if-using-ini">
+<h5><strong>INI_FILE</strong> : text : <em>MUST BE SPECIFIED if using INI</em><a class="headerlink" href="#ini-file-text-must-be-specified-if-using-ini" title="Permalink to this headline">¶</a></h5>
+<ul class="simple">
+<li>The path to the file that contains your INI database</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="section" id="server-behaviour">
+<h3>Server behaviour<a class="headerlink" href="#server-behaviour" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="allow-local-dhcp-boolean-default-true">
+<h4><strong>ALLOW_LOCAL_DHCP</strong> : boolean : default=True<a class="headerlink" href="#allow-local-dhcp-boolean-default-true" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Whether link-local DHCP requests will be handled</li>
+</ul>
+</div>
+<div class="section" id="allow-dhcp-relays-boolean-default-false">
+<h4><strong>ALLOW_DHCP_RELAYS</strong> : boolean : default=False<a class="headerlink" href="#allow-dhcp-relays-boolean-default-false" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Whether relayed DHCP requests will be handled</li>
+</ul>
+</div>
+<div class="section" id="allowed-dhcp-relays-list-default">
+<h4><strong>ALLOWED_DHCP_RELAYS</strong> : list : default=[]<a class="headerlink" href="#allowed-dhcp-relays-list-default" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>If relayed requests are allowed, providing a list of IPs, like
+<code class="docutils literal notranslate"><span class="pre">['192.168.1.1',</span> <span class="pre">'192.168.2.1']</span></code>, will limit which ones will be accepted</li>
+<li>If empty, all relays are considered acceptable</li>
+</ul>
+</div>
+<div class="section" id="enable-rapidcommit-boolean-default-true">
+<h4><strong>ENABLE_RAPIDCOMMIT</strong> : boolean : default=True<a class="headerlink" href="#enable-rapidcommit-boolean-default-true" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Whether rapid-commit (RFC 4039) semantics should be processed for supporting
+clients.</li>
+<li>If this causes problems, please report it as a bug and provide details.</li>
+</ul>
+</div>
+<div class="section" id="authoritative-boolean-default-false">
+<h4><strong>AUTHORITATIVE</strong> : boolean : default=False<a class="headerlink" href="#authoritative-boolean-default-false" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Controls whether unknown MACs should be NAKed instead of ignored</li>
+<li>If you are likely to run multiple DHCP servers that do not share the same
+lease-status information, this should be False, or else clients will
+experience intermittent stability issues, as one server contradicts the other
+instead of staying silent</li>
+</ul>
+</div>
+<div class="section" id="nak-renewals-boolean-default-false">
+<h4><strong>NAK_RENEWALS</strong> : boolean : default=False<a class="headerlink" href="#nak-renewals-boolean-default-false" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Whether <cite>REBIND</cite> and <cite>RENEW</cite> requests should be NAKed when received, forcing
+clients to either wait out their lease or return to the <cite>DISCOVER</cite> phase</li>
+<li>This is good if you expect that you will be changing your configuration
+in the near future</li>
+</ul>
+</div>
+<div class="section" id="unauthorized-client-timeout-integer-default-60">
+<h4><strong>UNAUTHORIZED_CLIENT_TIMEOUT</strong> : integer : default=60<a class="headerlink" href="#unauthorized-client-timeout-integer-default-60" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The number of seconds for which unknown MACs should be ignored, to avoid
+wasting processing resources unnecessarily</li>
+</ul>
+</div>
+<div class="section" id="misbehaving-client-timeout-integer-default-150">
+<h4><strong>MISBEHAVING_CLIENT_TIMEOUT</strong> : integer : default=150<a class="headerlink" href="#misbehaving-client-timeout-integer-default-150" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The number of seconds for which MACs that are sending invalid requests should
+be ignored; with dynamic servers, these could be trying to trigger a DoS
+scenario, so there’s no point in wasting resources on them</li>
+</ul>
+</div>
+<div class="section" id="enable-suspend-boolean-default-true">
+<h4><strong>ENABLE_SUSPEND</strong> : boolean : default=True<a class="headerlink" href="#enable-suspend-boolean-default-true" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Whether MACs that are flooding the server will be considered as misbehaving</li>
+</ul>
+</div>
+<div class="section" id="suspend-threshold-integer-default-10">
+<h4><strong>SUSPEND_THRESHOLD</strong> : integer : default=10<a class="headerlink" href="#suspend-threshold-integer-default-10" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The number of times a well-behaved MAC can interact with the server before
+being being considered as misbehaving</li>
+<li>The number of interactions in memory is reduced by one per second</li>
+</ul>
+</div>
+</div>
+<div class="section" id="logging">
+<h3>Logging<a class="headerlink" href="#logging" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="log-file-text-none-default-none">
+<h4><strong>LOG_FILE</strong> : text, None : default=None<a class="headerlink" href="#log-file-text-none-default-none" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The path to which logs should be written</li>
+<li>The specified file must be writeable if it already exists, or containing
+directory must allow file-creation</li>
+<li><code class="docutils literal notranslate"><span class="pre">'/var/log/staticDHCPd/staticDHCPd.log'</span></code> is a good choice, but you must
+create the directory and set appropriate permissions first</li>
+</ul>
+</div>
+<div class="section" id="log-file-history-integer-none-default-7">
+<h4><strong>LOG_FILE_HISTORY</strong> : integer, None : default=7<a class="headerlink" href="#log-file-history-integer-none-default-7" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>If logging to a file, this will cause logs to rotate once per day, with
+retention up to the specified number of days</li>
+<li>If <cite>None</cite>, which is not recommended, the specified file will grow indefinitely</li>
+</ul>
+</div>
+<div class="section" id="log-file-severity-text-default-warn">
+<h4><strong>LOG_FILE_SEVERITY</strong> : text : default=’WARN’<a class="headerlink" href="#log-file-severity-text-default-warn" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Controls how much information appears in the log-file: only events at least
+this important</li>
+<li>One of <code class="docutils literal notranslate"><span class="pre">'DEBUG'</span></code>, <code class="docutils literal notranslate"><span class="pre">'INFO'</span></code>, <code class="docutils literal notranslate"><span class="pre">'WARN'</span></code>, <code class="docutils literal notranslate"><span class="pre">'ERROR'</span></code>, <code class="docutils literal notranslate"><span class="pre">'CRITICAL'</span></code></li>
+</ul>
+</div>
+<div class="section" id="log-console-severity-text-default-info">
+<h4><strong>LOG_CONSOLE_SEVERITY</strong> : text : default=’INFO’<a class="headerlink" href="#log-console-severity-text-default-info" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Controls how much information appears in the console: only events at least
+this important</li>
+<li>Console-based logging is disabled when running as a daemon</li>
+<li>One of <code class="docutils literal notranslate"><span class="pre">'DEBUG'</span></code>, <code class="docutils literal notranslate"><span class="pre">'INFO'</span></code>, <code class="docutils literal notranslate"><span class="pre">'WARN'</span></code>, <code class="docutils literal notranslate"><span class="pre">'ERROR'</span></code>, <code class="docutils literal notranslate"><span class="pre">'CRITICAL'</span></code></li>
+</ul>
+</div>
+</div>
+<div class="section" id="webservice">
+<h3>Webservice<a class="headerlink" href="#webservice" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="web-enabled-boolean-default-true">
+<h4><strong>WEB_ENABLED</strong> : boolean : default=True<a class="headerlink" href="#web-enabled-boolean-default-true" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Whether the webservice engine should be enabled</li>
+</ul>
+</div>
+<div class="section" id="web-ip-text-default-0-0-0-0">
+<h4><strong>WEB_IP</strong> : text : default=‘0.0.0.0’<a class="headerlink" href="#web-ip-text-default-0-0-0-0" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The IP on which HTTP traffic should be served</li>
+<li>By default, this will listen on all interfaces; to restrict it, provide a
+specific IP</li>
+</ul>
+</div>
+<div class="section" id="web-port-integer-default-30880">
+<h4><strong>WEB_PORT</strong> : integer : default=30880<a class="headerlink" href="#web-port-integer-default-30880" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The port on which HTTP traffic should be served</li>
+</ul>
+</div>
+<div class="section" id="web-log-history-integer-default-200">
+<h4><strong>WEB_LOG_HISTORY</strong> : integer : default=200<a class="headerlink" href="#web-log-history-integer-default-200" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The number of events to present in the dashboard’s log</li>
+<li>If <code class="docutils literal notranslate"><span class="pre">0</span></code>, no log will be present in the dashboard</li>
+</ul>
+</div>
+<div class="section" id="web-log-severity-text-default-info">
+<h4><strong>WEB_LOG_SEVERITY</strong> : text : default=’INFO’<a class="headerlink" href="#web-log-severity-text-default-info" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Controls how much information appears in the dashboard: only events at least
+this important</li>
+<li>One of <code class="docutils literal notranslate"><span class="pre">'DEBUG'</span></code>, <code class="docutils literal notranslate"><span class="pre">'INFO'</span></code>, <code class="docutils literal notranslate"><span class="pre">'WARN'</span></code>, <code class="docutils literal notranslate"><span class="pre">'ERROR'</span></code>, <code class="docutils literal notranslate"><span class="pre">'CRITICAL'</span></code></li>
+</ul>
+</div>
+<div class="section" id="web-log-max-height-integer-none-default-400">
+<h4><strong>WEB_LOG_MAX_HEIGHT</strong> : integer, None : default=400<a class="headerlink" href="#web-log-max-height-integer-none-default-400" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The maximum height, in pixels, of the web-log, before it scrolls</li>
+<li>A value of <code class="docutils literal notranslate"><span class="pre">None</span></code> disables this restriction</li>
+</ul>
+</div>
+<div class="section" id="web-digest-username-text-none-default-none">
+<h4><strong>WEB_DIGEST_USERNAME</strong> : text, None : default=None<a class="headerlink" href="#web-digest-username-text-none-default-none" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The username to use for DIGEST-based authentication</li>
+<li>If <code class="docutils literal notranslate"><span class="pre">None</span></code>, authentication is disabled</li>
+</ul>
+</div>
+<div class="section" id="web-digest-password-text-none-default-none">
+<h4><strong>WEB_DIGEST_PASSWORD</strong> : text, None : default=None<a class="headerlink" href="#web-digest-password-text-none-default-none" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The password to use for DIGEST-based authentication</li>
+<li>If <code class="docutils literal notranslate"><span class="pre">None</span></code>, authentication is disabled</li>
+</ul>
+</div>
+<div class="section" id="web-dashboard-secure-boolean-default-false">
+<h4><strong>WEB_DASHBOARD_SECURE</strong> : boolean : default=False<a class="headerlink" href="#web-dashboard-secure-boolean-default-false" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Whether authentication is needed to access the dashboard</li>
+</ul>
+</div>
+<div class="section" id="web-reinitialise-confirm-boolean-default-true">
+<h4><strong>WEB_REINITIALISE_CONFIRM</strong> : boolean : default=True<a class="headerlink" href="#web-reinitialise-confirm-boolean-default-true" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Whether confirmation is required to reinitialise the server</li>
+</ul>
+</div>
+<div class="section" id="web-reinitialise-secure-boolean-default-false">
+<h4><strong>WEB_REINITIALISE_SECURE</strong> : boolean : default=False<a class="headerlink" href="#web-reinitialise-secure-boolean-default-false" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Whether authentication is requires to reinitialise the server</li>
+</ul>
+</div>
+<div class="section" id="web-reinitialise-hidden-boolean-default-false">
+<h4><strong>WEB_REINITIALISE_HIDDEN</strong> : boolean : default=False<a class="headerlink" href="#web-reinitialise-hidden-boolean-default-false" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Whether the reinitilise element should be hidden</li>
+</ul>
+</div>
+<div class="section" id="web-reinitialise-enabled-boolean-default-true">
+<h4><strong>WEB_REINITIALISE_ENABLED</strong> : boolean : default=True<a class="headerlink" href="#web-reinitialise-enabled-boolean-default-true" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Whether the reinitilise option should be available at all</li>
+</ul>
+</div>
+<div class="section" id="web-dashboard-order-log-integer-default-1000">
+<h4><strong>WEB_DASHBOARD_ORDER_LOG</strong> : integer : default=1000<a class="headerlink" href="#web-dashboard-order-log-integer-default-1000" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Sets the ordering bias of the log in the web-dashboard</li>
+</ul>
+</div>
+<div class="section" id="web-header-title-boolean-default-true">
+<h4><strong>WEB_HEADER_TITLE</strong> : boolean : default=True<a class="headerlink" href="#web-header-title-boolean-default-true" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Whether the default title should be included in the web interface</li>
+<li>This is the same as the value you supplied for <strong>SYSTEM_NAME</strong></li>
+</ul>
+</div>
+<div class="section" id="web-header-css-boolean-default-true">
+<h4><strong>WEB_HEADER_CSS</strong> : boolean : default=True<a class="headerlink" href="#web-header-css-boolean-default-true" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Whether the defualt CSS should be included in the web interface</li>
+</ul>
+</div>
+<div class="section" id="web-header-favicon-boolean-default-true">
+<h4><strong>WEB_HEADER_FAVICON</strong> : boolean : default=True<a class="headerlink" href="#web-header-favicon-boolean-default-true" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Whether the defualt favicon should be included in the web interface</li>
+</ul>
+</div>
+</div>
+<div class="section" id="e-mail">
+<h3>E-mail<a class="headerlink" href="#e-mail" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="email-enabled-boolean-false">
+<h4><strong>EMAIL_ENABLED</strong> : boolean : False<a class="headerlink" href="#email-enabled-boolean-false" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Whether e-mail notification of <cite>CRITICAL</cite>-severity events should occur</li>
+<li>These issues usually reflect very unusual conditions in your network, and
+are therefore generally very helpful</li>
+</ul>
+</div>
+<div class="section" id="email-server-text-must-be-specified-if-using-e-mail">
+<h4><strong>EMAIL_SERVER</strong> : text : <em>MUST BE SPECIFIED if using e-mail</em><a class="headerlink" href="#email-server-text-must-be-specified-if-using-e-mail" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Your SMTP server’s address</li>
+</ul>
+</div>
+<div class="section" id="email-port-integer-default-25">
+<h4><strong>EMAIL_PORT</strong> : integer : default=25<a class="headerlink" href="#email-port-integer-default-25" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The SMTP port your server uses</li>
+</ul>
+</div>
+<div class="section" id="email-source-text-must-be-specified-if-using-e-mail">
+<h4><strong>EMAIL_SOURCE</strong> : text : <em>MUST BE SPECIFIED if using e-mail</em><a class="headerlink" href="#email-source-text-must-be-specified-if-using-e-mail" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The address to put in the <cite>FROM</cite> field</li>
+</ul>
+</div>
+<div class="section" id="email-destination-text-must-be-specified-if-using-e-mail">
+<h4><strong>EMAIL_DESTINATION</strong> : text : <em>MUST BE SPECIFIED if using e-mail</em><a class="headerlink" href="#email-destination-text-must-be-specified-if-using-e-mail" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The address to put in the <cite>TO</cite> field</li>
+</ul>
+</div>
+<div class="section" id="email-subject-text-default-staticdhcpd-encountered-a-problem">
+<h4><strong>EMAIL_SUBJECT</strong> : text : default=’staticDHCPd encountered a problem’<a class="headerlink" href="#email-subject-text-default-staticdhcpd-encountered-a-problem" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The subject-line to use for e-mail issues</li>
+<li><code class="docutils literal notranslate"><span class="pre">&quot;staticDHCPd</span> <span class="pre">running</span> <span class="pre">on</span> <span class="pre">&quot;</span> <span class="pre">+</span> <span class="pre">DHCP_SERVER_IP</span> <span class="pre">+</span> <span class="pre">&quot;</span> <span class="pre">encountered</span> <span class="pre">a</span> <span class="pre">problem&quot;</span></code>
+might be a better choice for a larger environment</li>
+</ul>
+</div>
+<div class="section" id="email-user-text-none-default-none">
+<h4><strong>EMAIL_USER</strong> : text, None : default=None<a class="headerlink" href="#email-user-text-none-default-none" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The username to use in authentication to the server</li>
+<li>If <code class="docutils literal notranslate"><span class="pre">None</span></code>, authentication is not performed</li>
+</ul>
+</div>
+<div class="section" id="email-password-text-must-be-specified-if-using-e-mail-and-email-user-is-set">
+<h4><strong>EMAIL_PASSWORD</strong> : text : <em>MUST BE SPECIFIED if using e-mail and EMAIL_USER is set</em><a class="headerlink" href="#email-password-text-must-be-specified-if-using-e-mail-and-email-user-is-set" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>The password to use in authentication to the server</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Configuration guide</a><ul>
+<li><a class="reference internal" href="#conf-py"><code class="docutils literal notranslate"><span class="pre">conf.py</span></code></a></li>
+<li><a class="reference internal" href="#parameters">Parameters</a><ul>
+<li><a class="reference internal" href="#general">General</a></li>
+<li><a class="reference internal" href="#server">Server</a></li>
+<li><a class="reference internal" href="#caching">Caching</a></li>
+<li><a class="reference internal" href="#database">Database</a></li>
+<li><a class="reference internal" href="#server-behaviour">Server behaviour</a></li>
+<li><a class="reference internal" href="#logging">Logging</a></li>
+<li><a class="reference internal" href="#webservice">Webservice</a></li>
+<li><a class="reference internal" href="#e-mail">E-mail</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Customisation guidance</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="scripting.html"
+                        title="next chapter">Scripting guide</a></p>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="scripting.html" title="Scripting guide"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Customisation guidance"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">staticDHCPd 2.0.0-rc1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Customisation guidance</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2014, Neil Tallim &lt;flan@uguu.ca&gt;.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.2.
+    </div>
+  </body>
+</html>
