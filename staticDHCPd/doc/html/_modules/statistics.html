@@ -1,0 +1,212 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>statistics &#8212; staticDHCPd 2.0.0-rc1 documentation</title>
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="nav-item nav-item-0"><a href="../index.html">staticDHCPd 2.0.0-rc1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for statistics</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- encoding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">staticdhcpdlib.statistics</span>
+<span class="sd">=========================</span>
+<span class="sd">Defines statistics-delegation methods and structures.</span>
+<span class="sd"> </span>
+<span class="sd">Legal</span>
+<span class="sd">-----</span>
+<span class="sd">This file is part of staticDHCPd.</span>
+<span class="sd">staticDHCPd is free software; you can redistribute it and/or modify</span>
+<span class="sd">it under the terms of the GNU General Public License as published by</span>
+<span class="sd">the Free Software Foundation; either version 3 of the License, or</span>
+<span class="sd">(at your option) any later version.</span>
+
+<span class="sd">This program is distributed in the hope that it will be useful,</span>
+<span class="sd">but WITHOUT ANY WARRANTY; without even the implied warranty of</span>
+<span class="sd">MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the</span>
+<span class="sd">GNU General Public License for more details.</span>
+
+<span class="sd">You should have received a copy of the GNU General Public License</span>
+<span class="sd">along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.</span>
+
+<span class="sd">(C) Neil Tallim, 2014 &lt;flan@uguu.ca&gt;</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">collections</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">threading</span>
+<span class="kn">import</span> <span class="nn">traceback</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;statistics&#39;</span><span class="p">)</span>
+
+<span class="n">_stats_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+<span class="n">_stats_callbacks</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="n">Statistics</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">namedtuple</span><span class="p">(</span><span class="s2">&quot;Statistics&quot;</span><span class="p">,</span> <span class="p">(</span>
+ <span class="s1">&#39;source_address&#39;</span><span class="p">,</span> <span class="s1">&#39;mac&#39;</span><span class="p">,</span> <span class="s1">&#39;ip&#39;</span><span class="p">,</span> <span class="s1">&#39;subnet&#39;</span><span class="p">,</span> <span class="s1">&#39;serial&#39;</span><span class="p">,</span> <span class="s1">&#39;method&#39;</span><span class="p">,</span> <span class="s1">&#39;processing_time&#39;</span><span class="p">,</span> <span class="s1">&#39;processed&#39;</span><span class="p">,</span> <span class="s1">&#39;port&#39;</span><span class="p">,</span>
+<span class="p">))</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Statistics associated with a DHCP event.</span>
+
+<span class="sd">.. py:attribute:: source_address</span>
+<span class="sd">    :noindex:</span>
+
+<span class="sd">    An :class:`libpydhcpserver.dhcp.Address` containing the IP and port of the</span>
+<span class="sd">    client.</span>
+
+<span class="sd">.. py:attribute:: mac</span>
+<span class="sd">    :noindex:</span>
+
+<span class="sd">    A :class:`libpydhcpserver.dhcp_types.mac.MAC` containing the MAC of the</span>
+<span class="sd">    client; None if the event was not due to a DHCP packet.</span>
+
+<span class="sd">.. py:attribute:: ip</span>
+<span class="sd">    :noindex:</span>
+
+<span class="sd">    An :class:`libpydhcpserver.dhcp_types.ipv4.IPv4` containing the address</span>
+<span class="sd">    assigned to the client, if any.</span>
+
+<span class="sd">.. py:attribute:: subnet</span>
+<span class="sd">    :noindex:</span>
+
+<span class="sd">    The database-subnet associated with this event.</span>
+
+<span class="sd">.. py:attribute:: serial</span>
+<span class="sd">    :noindex:</span>
+
+<span class="sd">    The database-serial associated with this event.</span>
+
+<span class="sd">.. py:attribute:: method</span>
+<span class="sd">    :noindex:</span>
+
+<span class="sd">    The DHCP method of the received packet.</span>
+
+<span class="sd">.. py:attribute:: processing_time</span>
+<span class="sd">    :noindex:</span>
+
+<span class="sd">    The number of seconds required to finish processing the event.</span>
+
+<span class="sd">.. py:attribute:: processed</span>
+<span class="sd">    :noindex:</span>
+
+<span class="sd">    Whether the packet was fully processed (``False`` if non-DHCP or</span>
+<span class="sd">    blacklisted).</span>
+
+<span class="sd">.. py:attribute:: port</span>
+<span class="sd">    :noindex:</span>
+
+<span class="sd">    The port on which the request was received.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="k">def</span> <span class="nf">emit</span><span class="p">(</span><span class="n">statistics</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Invokes every registered stats handler to deliver new information.</span>
+<span class="sd">    </span>
+<span class="sd">    :param :class:`Statistics` statistics: The statistics to report.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">_stats_lock</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">callback</span> <span class="ow">in</span> <span class="n">_stats_callbacks</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">callback</span><span class="p">(</span><span class="n">statistics</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s2">&quot;Unable to deliver statistics:</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">())</span>
+                
+<span class="k">def</span> <span class="nf">registerStatsCallback</span><span class="p">(</span><span class="n">callback</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Registers a statistics callback.</span>
+<span class="sd">    </span>
+<span class="sd">    :param callable callback: A callable that takes :data:`Statistics` as its</span>
+<span class="sd">                              argument; if already present, it will not be</span>
+<span class="sd">                              registered a second time. This function must never</span>
+<span class="sd">                              block for any significant amount of time.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">_stats_lock</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">callback</span> <span class="ow">in</span> <span class="n">_stats_callbacks</span><span class="p">:</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Callback </span><span class="si">%(callback)r</span><span class="s2"> is already registered&quot;</span> <span class="o">%</span> <span class="p">{</span><span class="s1">&#39;callback&#39;</span><span class="p">:</span> <span class="n">callback</span><span class="p">,})</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">_stats_callbacks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">callback</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Registered stats-callback </span><span class="si">%(callback)r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">{</span><span class="s1">&#39;callback&#39;</span><span class="p">:</span> <span class="n">callback</span><span class="p">,})</span>
+            
+<span class="k">def</span> <span class="nf">unregisterStatsCallback</span><span class="p">(</span><span class="n">callback</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Unregisters a statistics callback.</span>
+<span class="sd">    </span>
+<span class="sd">    :param callable callback: The callable to be removed.</span>
+<span class="sd">    :return bool: True if a callback was removed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">_stats_lock</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">_stats_callbacks</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">callback</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Callback </span><span class="si">%(callback)r</span><span class="s2"> is not registered&quot;</span> <span class="o">%</span> <span class="p">{</span><span class="s1">&#39;callback&#39;</span><span class="p">:</span> <span class="n">callback</span><span class="p">,})</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Unregistered stats-callback </span><span class="si">%(callback)r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">{</span><span class="s1">&#39;callback&#39;</span><span class="p">:</span> <span class="n">callback</span><span class="p">,})</span>
+            <span class="k">return</span> <span class="kc">True</span>
+            
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="nav-item nav-item-0"><a href="../index.html">staticDHCPd 2.0.0-rc1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2014, Neil Tallim &lt;flan@uguu.ca&gt;.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.2.
+    </div>
+  </body>
+</html>

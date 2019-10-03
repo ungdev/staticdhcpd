@@ -1,0 +1,223 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Working with extension modules &#8212; staticDHCPd 2.0.0-rc1 documentation</title>
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Practical recipies that everyone can use!" href="../examples/index.html" />
+    <link rel="prev" title="Scripting guide" href="scripting.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../examples/index.html" title="Practical recipies that everyone can use!"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="scripting.html" title="Scripting guide"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">staticDHCPd 2.0.0-rc1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Customisation guidance</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="working-with-extension-modules">
+<h1>Working with extension modules<a class="headerlink" href="#working-with-extension-modules" title="Permalink to this headline">¶</a></h1>
+<p>All included extension modules provide specific usage instructions in their
+header sections.</p>
+<p>However, because including common information in each one would be redundant,
+the general flow of installing one is the following:</p>
+<ol class="arabic simple">
+<li>Ensure that there exists an <code class="docutils literal notranslate"><span class="pre">extensions/</span></code> subdirectory in the same
+directory as <code class="docutils literal notranslate"><span class="pre">conf.py</span></code></li>
+<li>Copy or link the extension-file into <code class="docutils literal notranslate"><span class="pre">extensions/</span></code></li>
+<li>Follow its instructions to install hooks in <code class="docutils literal notranslate"><span class="pre">conf.py</span></code></li>
+<li>(re)Start <em>staticDHCPd</em></li>
+</ol>
+<div class="section" id="configuring-modules">
+<h2>Configuring modules<a class="headerlink" href="#configuring-modules" title="Permalink to this headline">¶</a></h2>
+<p>Since your module is independent code that you explicitly hook into
+<em>staticDHCPd</em>, and can therefore run independently, you are free to configure
+it any way you would like; if you are its sole consumer, constants defined
+in-file are likely the simplest method and more than good enough.</p>
+<div class="section" id="supplying-configuration-through-conf-py">
+<h3>Supplying configuration through <cite>conf.py</cite><a class="headerlink" href="#supplying-configuration-through-conf-py" title="Permalink to this headline">¶</a></h3>
+<p>While it is entirely possible to contain all extension configuration within the
+module itself, if you plan to share, it is convenient for users to define
+values in <code class="docutils literal notranslate"><span class="pre">conf.py</span></code>.</p>
+<p>To make use of this facility, all you need to do is instruct your users to add
+lines like the following in <a class="reference internal" href="scripting.html#scripting-init"><span class="std std-ref">init()</span></a>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">extensions</span><span class="o">.</span><span class="n">your_module</span><span class="o">.</span><span class="n">REFRESH_INTERVAL</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="n">extensions</span><span class="o">.</span><span class="n">your_module</span><span class="o">.</span><span class="n">SOME_DICT</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="mi">1</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="s1">&#39;a&#39;</span><span class="p">:</span> <span class="s1">&#39;c&#39;</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Or like this, so that it’s clear, at a glance, where your module’s parameters
+are set, by encouraging uniform indentation:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">extensions</span><span class="o">.</span><span class="n">your_module</span> <span class="k">as</span> <span class="n">x</span><span class="p">:</span>
+    <span class="n">x</span><span class="o">.</span><span class="n">TIMEOUT</span> <span class="o">=</span> <span class="mf">0.25</span>
+</pre></div>
+</div>
+<p>If, however, you are working with a module for which loading in
+<a class="reference internal" href="scripting.html#scripting-init"><span class="std std-ref">init()</span></a> is too late, the convention to avoid conflicting with
+future <em>staticDHCPd</em> built-in variables is to use <code class="docutils literal notranslate"><span class="pre">X_YOURMODULE_VARIABLE</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">X_HTTPDB_URI</span> <span class="o">=</span> <span class="s1">&#39;http://example.org/dhcp&#39;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="accessing-configuration-data">
+<h3>Accessing configuration data<a class="headerlink" href="#accessing-configuration-data" title="Permalink to this headline">¶</a></h3>
+<p>Within your module, you then have a few ways of accessing this data. They’ll
+basically all start with importing the <code class="docutils literal notranslate"><span class="pre">extensions</span></code> namespace:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">staticdhcpdlib.config</span>
+<span class="n">_config</span> <span class="o">=</span> <span class="n">staticdhcpdlib</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">extensions</span><span class="o">.</span><span class="n">your_module</span>
+</pre></div>
+</div>
+<p>You can then extract data from <code class="docutils literal notranslate"><span class="pre">_config</span></code> as needed; you’ll probably want to
+use one of the parsing methods it exposes to create a dictionary to avoid
+testing to see if every value is set or not, but how to use it is entirely up
+to you.</p>
+<p>For performance reasons, it may be a good idea to assign the namespace’s
+data during module setup, then discard it and any intermediate structures,
+like dictionaries compiled using these methods:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">del</span> <span class="n">_config</span> <span class="c1">#Removes the reference and lets staticDHCPd reclaim resources</span>
+<span class="k">del</span> <span class="n">YOUR_CONFIG_DICTIONARY</span> <span class="c1">#Allows for normal Python garbage-collection</span>
+</pre></div>
+</div>
+<p>Of course, if keeping a dictionary or the namespace around is how you want to
+access information, that’s perfectly valid and the structures are pretty
+efficient by themselves.</p>
+<p>In the early-bind case, the following will work, and you may streamline the code
+as you see fit:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">staticdhcpdlib.config</span>
+<span class="n">URI</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">staticdhcpdlib</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s1">&#39;X_HTTPDB_URI&#39;</span><span class="p">,</span> <span class="s1">&#39;http://default/value&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="developing-your-own-module">
+<h2>Developing your own module<a class="headerlink" href="#developing-your-own-module" title="Permalink to this headline">¶</a></h2>
+<p>The best way to start is by studying the provided modules. They range from
+simple to fairly complex, but all of them are practical.</p>
+<p>Simple -&gt; Complex:</p>
+<ul class="simple">
+<li><cite>recent_activity</cite><ul>
+<li>Simple, self-installing web-interface dashboard element that shows
+the last several DHCP events.</li>
+</ul>
+</li>
+<li><cite>httpdb</cite><ul>
+<li>Basic REST/JSON-based database interface.</li>
+</ul>
+</li>
+<li><cite>feedservice</cite><ul>
+<li>Self-installing ATOM-feed interface to the logging system, using
+web-methods to extend the webserver.</li>
+</ul>
+</li>
+<li><cite>statistics</cite><ul>
+<li>Self-installing web-interface dashboard elements that display DHCP activity
+and, if necessary packages are available, an activity graph.</li>
+</ul>
+</li>
+<li><cite>dynamism</cite><ul>
+<li>Robust dynamic DHCP facilities that can enhance or completely supplant
+static behaviour.</li>
+</ul>
+</li>
+</ul>
+<p>No matter what you want to build, though, understanding how it will interact
+with <em>staticDHCPd</em> is crucial. You will almost certainly be making use of
+<a class="reference internal" href="scripting.html#scripting-callbacks"><span class="std std-ref">callbacks</span></a>, and some combination of the
+<a class="reference internal" href="scripting.html#scripting-init"><span class="std std-ref">init()</span></a>, <a class="reference internal" href="scripting.html#scripting-filterpacket"><span class="std std-ref">filterPacket()</span></a>,
+<a class="reference internal" href="scripting.html#scripting-handleunknownmac"><span class="std std-ref">handleUnknownMAC()</span></a>, and <a class="reference internal" href="scripting.html#scripting-loaddhcppacket"><span class="std std-ref">loadDHCPPacket()</span></a>
+functions.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Working with extension modules</a><ul>
+<li><a class="reference internal" href="#configuring-modules">Configuring modules</a><ul>
+<li><a class="reference internal" href="#supplying-configuration-through-conf-py">Supplying configuration through <cite>conf.py</cite></a></li>
+<li><a class="reference internal" href="#accessing-configuration-data">Accessing configuration data</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#developing-your-own-module">Developing your own module</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="scripting.html"
+                        title="previous chapter">Scripting guide</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../examples/index.html"
+                        title="next chapter">Practical recipies that everyone can use!</a></p>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../examples/index.html" title="Practical recipies that everyone can use!"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="scripting.html" title="Scripting guide"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">staticDHCPd 2.0.0-rc1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Customisation guidance</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2014, Neil Tallim &lt;flan@uguu.ca&gt;.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.2.
+    </div>
+  </body>
+</html>
